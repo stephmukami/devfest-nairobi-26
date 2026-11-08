@@ -36,8 +36,11 @@ def _user(user_id: str) -> str:
     return user_id
 
 
-@app.get("/healthz")
-async def healthz():
+# Cloud Run's front end reserves paths ending in "z" (e.g. /healthz) and returns its own 404,
+# so the deployed health check is /api/health. /healthz is kept for local use.
+@app.get("/api/health")
+@app.get("/healthz", include_in_schema=False)
+async def health():
     return {"ok": True}
 
 
