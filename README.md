@@ -44,7 +44,7 @@ python -m venv .venv
 .venv/Scripts/activate        # Windows; use source .venv/bin/activate on macOS/Linux
 pip install -r requirements-dev.txt
 cp .env.example .env          # add GEMINI_API_KEY to see Gemini wording; works without it
-uvicorn app.main:app --reload --port 8000 --env-file .env
+uvicorn app.main:app --reload --port 8000 --env-file .env.local
 pytest                        # routing table, enrichment fallbacks, API, replay
 ```
 
