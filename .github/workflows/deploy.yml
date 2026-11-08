@@ -1,0 +1,193 @@
+# Test, then deploy the API to Cloud Run and the web app to Firebase Hosting.
+#
+# One-time setup: run scripts/setup-github-deploy.ps1, then add the repository
+# variables and secret it prints (Settings > Secrets and variables > Actions).
+# Auth is Workload Identity Federation: no service account keys are stored in GitHub.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        options: [both, backend, web]
+        default: both
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || 'europe-west1' }}
+  SERVICE: shippy-api
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/deploy.yml'
+            web:
+              - 'web/**'
+              - 'firebase.json'
+              - '.github/workflows/deploy.yml'
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Backend tests (routing table, enrichment fallbacks, API)
+        working-directory: backend
+        run: |
+          pip install -r requirements-dev.txt
+          pytest -q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Web typecheck
+        working-directory: web
+        run: |
+          npm ci
+          npx tsc --noEmit
+
+  deploy-backend:
+    name: Deploy API (Cloud Run)
+    needs: [changes, test]
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.target != 'web') ||
+      (github.event_name == 'push' && needs.changes.outputs.backend == 'true')
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: gcloud run deploy
+        env:
+          DEMO_KEY: ${{ secrets.DEMO_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          MIN_INSTANCES: ${{ vars.MIN_INSTANCES || '0' }}
+        run: |
+          SITE="https://${PROJECT_ID}.web.app"
+          ORIGINS="${SITE},https://${PROJECT_ID}.firebaseapp.com"
+          # ^@^ switches gcloud's list delimiter so ALLOWED_ORIGIN can contain a comma.
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --source backend \
+            --allow-unauthenticated \
+            --timeout 3600 \
+            --max-instances 1 \
+            --min-instances "$MIN_INSTANCES" \
+            --no-cpu-throttling \
+            --set-secrets "GEMINI_API_KEY=gemini-api-key:latest" \
+            --set-env-vars "^@^GEMINI_MODEL=${GEMINI_MODEL}@ALLOWED_ORIGIN=${ORIGINS}@PUBLIC_APP_URL=${SITE}@DEMO_KEY=${DEMO_KEY}@FIREBASE_PROJECT_ID=${PROJECT_ID}" \
+            --quiet
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')
+          curl -fsS "$URL/healthz"
+          echo "API live at $URL" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-web:
+    name: Deploy web (Firebase Hosting)
+    needs: [changes, test, deploy-backend]
+    # Runs even when the backend deploy was skipped, but never after it failed.
+    if: >-
+      always() &&
+      needs.test.result == 'success' &&
+      needs.deploy-backend.result != 'failure' &&
+      needs.deploy-backend.result != 'cancelled' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.target != 'backend') ||
+       (github.event_name == 'push' && needs.changes.outputs.web == 'true'))
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Resolve Cloud Run URL for the SSE stream
+        id: api
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')
+          test -n "$URL" || { echo "::error::Cloud Run service $SERVICE not found. Deploy the backend first."; exit 1; }
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Write web/.env.production
+        # All of these are public web config values, not secrets.
+        run: |
+          cat > web/.env.production <<EOF
+          VITE_STREAM_URL=${{ steps.api.outputs.url }}
+          VITE_FIREBASE_API_KEY=${{ vars.FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.GCP_PROJECT_ID }}.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
+          VITE_FIREBASE_VAPID_KEY=${{ vars.FIREBASE_VAPID_KEY }}
+          EOF
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: firebase deploy --only hosting
+        # firebase-tools picks up the credentials written by google-github-actions/auth.
+        run: npx --yes firebase-tools@13 deploy --only hosting --project "$PROJECT_ID" --non-interactive
+
+      - name: Summary
+        run: echo "Web live at https://${PROJECT_ID}.web.app (stage at /stage)" >> "$GITHUB_STEP_SUMMARY"

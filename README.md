@@ -100,6 +100,26 @@ curl -X POST localhost:8000/api/demo/events -H 'content-type: application/json' 
 
 ## Deploy
 
+### Automated (GitHub Actions)
+
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml) runs on every push to `main` (or manually
+from the Actions tab). It runs the tests, deploys the API to Cloud Run if `backend/` changed, then builds
+and deploys the web app to Hosting if `web/` changed. The SSE URL is looked up from Cloud Run, so
+`web/.env.production` is generated in CI and never committed.
+
+One-time setup (Workload Identity Federation, no service account keys in GitHub):
+
+```powershell
+gcloud auth login
+.\scripts\setup-github-deploy.ps1 -ProjectId shippy-6b185 -Repo <github-user>/<repo-name>
+```
+
+Then add the variables and the `DEMO_KEY` secret the script prints under
+*Settings → Secrets and variables → Actions*. The jobs use a `production` environment, which GitHub
+creates on first run; add required reviewers to it if you want a manual approval before deploys.
+
+### Manual
+
 Prerequisites (plan Phase 0): Firebase project with billing and a budget alert, a registered web app,
 a VAPID key, `gemini-api-key` in Secret Manager, and the Cloud Run service account granted
 *Firebase Cloud Messaging Admin* and *Secret Manager Secret Accessor*.

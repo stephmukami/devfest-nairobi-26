@@ -54,7 +54,8 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
-            gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
+            # strip(): secrets created from a shell pipe often carry a trailing newline
+            gemini_api_key=(os.getenv("GEMINI_API_KEY") or "").strip() or None,
             gemini_model=os.getenv("GEMINI_MODEL") or cls.gemini_model,
             gemini_thinking_budget=_optional_int("GEMINI_THINKING_BUDGET", 0),
             enrich_timeout_s=float(os.getenv("ENRICH_TIMEOUT_S") or 1.5),
