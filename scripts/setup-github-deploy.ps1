@@ -20,6 +20,20 @@ function Run([string[]]$GcloudArgs) {
   & gcloud @GcloudArgs
   if ($LASTEXITCODE -ne 0) { throw "gcloud $($GcloudArgs -join ' ') failed" }
 }
+# IAM is eventually consistent: a service account created seconds ago can still be
+# reported as "does not exist" by policy bindings. Retry those for up to ~1 minute.
+function RunRetry([string[]]$GcloudArgs) {
+  for ($i = 1; $i -le 6; $i++) {
+    $ErrorActionPreference = "Continue"
+    & gcloud @GcloudArgs
+    if ($LASTEXITCODE -eq 0) { return }
+    if ($i -lt 6) {
+      Write-Host "  not visible yet, retrying in 10 s ($i/5)..." -ForegroundColor Yellow
+      Start-Sleep -Seconds 10
+    }
+  }
+  throw "gcloud $($GcloudArgs -join ' ') failed after retries"
+}
 function Exists([string[]]$GcloudArgs) {
   $ErrorActionPreference = "Continue"
   & gcloud @GcloudArgs --quiet *> $null
@@ -51,11 +65,11 @@ foreach ($role in @(
     "roles/firebasehosting.admin",            # firebase deploy --only hosting
     "roles/firebase.viewer"                   # firebase-tools reads project metadata
   )) {
-  Run @("projects", "add-iam-policy-binding", $ProjectId, "--member", "serviceAccount:$Deployer",
+  RunRetry @("projects", "add-iam-policy-binding", $ProjectId, "--member", "serviceAccount:$Deployer",
     "--role", $role, "--condition", "None", "--quiet") | Out-Null
 }
 # Let the deployer deploy services that run as the default compute service account.
-Run @("iam", "service-accounts", "add-iam-policy-binding", $RuntimeSa, "--project", $ProjectId,
+RunRetry @("iam", "service-accounts", "add-iam-policy-binding", $RuntimeSa, "--project", $ProjectId,
   "--member", "serviceAccount:$Deployer", "--role", "roles/iam.serviceAccountUser", "--quiet") | Out-Null
 
 Write-Host "Workload Identity pool and provider..."
@@ -75,7 +89,7 @@ if (-not (Exists @("iam", "workload-identity-pools", "providers", "describe", $P
 
 Write-Host "Allowing $Repo to impersonate the deployer..."
 $Principal = "principalSet://iam.googleapis.com/projects/$ProjectNumber/locations/global/workloadIdentityPools/$Pool/attribute.repository/$Repo"
-Run @("iam", "service-accounts", "add-iam-policy-binding", $Deployer, "--project", $ProjectId,
+RunRetry @("iam", "service-accounts", "add-iam-policy-binding", $Deployer, "--project", $ProjectId,
   "--role", "roles/iam.workloadIdentityUser", "--member", $Principal, "--quiet") | Out-Null
 
 $ProviderName = "projects/$ProjectNumber/locations/global/workloadIdentityPools/$Pool/providers/$Provider"

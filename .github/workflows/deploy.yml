@@ -24,9 +24,13 @@ concurrency:
 permissions:
   contents: read
 
+# Each setting is read from a repository Variable first, then a Secret of the same name,
+# so it works whichever tab you put it in.
 env:
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-  REGION: ${{ vars.GCP_REGION || 'europe-west1' }}
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION || 'europe-west1' }}
+  WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER || secrets.GCP_WIF_PROVIDER }}
+  DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA || secrets.GCP_DEPLOY_SA }}
   SERVICE: shippy-api
 
 jobs:
@@ -92,18 +96,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check configuration
+        run: |
+          missing=""
+          [ -n "$PROJECT_ID" ]   || missing="$missing GCP_PROJECT_ID"
+          [ -n "$WIF_PROVIDER" ] || missing="$missing GCP_WIF_PROVIDER"
+          [ -n "$DEPLOY_SA" ]    || missing="$missing GCP_DEPLOY_SA"
+          if [ -n "$missing" ]; then
+            echo "::error::Not set:$missing. Add them under Settings > Secrets and variables > Actions (Variables or Secrets tab, at repository level or in the 'production' environment). Values come from scripts/setup-github-deploy.ps1."
+            exit 1
+          fi
+
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
 
       - uses: google-github-actions/setup-gcloud@v2
 
       - name: gcloud run deploy
         env:
           DEMO_KEY: ${{ secrets.DEMO_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
-          MIN_INSTANCES: ${{ vars.MIN_INSTANCES || '0' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || secrets.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          MIN_INSTANCES: ${{ vars.MIN_INSTANCES || secrets.MIN_INSTANCES || '0' }}
         run: |
           SITE="https://${PROJECT_ID}.web.app"
           ORIGINS="${SITE},https://${PROJECT_ID}.firebaseapp.com"
@@ -146,10 +161,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check configuration
+        run: |
+          missing=""
+          [ -n "$PROJECT_ID" ]   || missing="$missing GCP_PROJECT_ID"
+          [ -n "$WIF_PROVIDER" ] || missing="$missing GCP_WIF_PROVIDER"
+          [ -n "$DEPLOY_SA" ]    || missing="$missing GCP_DEPLOY_SA"
+          if [ -n "$missing" ]; then
+            echo "::error::Not set:$missing. Add them under Settings > Secrets and variables > Actions (Variables or Secrets tab, at repository level or in the 'production' environment). Values come from scripts/setup-github-deploy.ps1."
+            exit 1
+          fi
+
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SA }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
 
       - uses: google-github-actions/setup-gcloud@v2
 
@@ -162,15 +188,23 @@ jobs:
 
       - name: Write web/.env.production
         # All of these are public web config values, not secrets.
+        env:
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY || secrets.FIREBASE_API_KEY }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID || secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID || secrets.FIREBASE_APP_ID }}
+          FIREBASE_VAPID_KEY: ${{ vars.FIREBASE_VAPID_KEY || secrets.FIREBASE_VAPID_KEY }}
         run: |
+          for n in FIREBASE_API_KEY FIREBASE_MESSAGING_SENDER_ID FIREBASE_APP_ID FIREBASE_VAPID_KEY; do
+            [ -n "${!n}" ] || echo "::warning::$n is not set; push notifications will be disabled in this build."
+          done
           cat > web/.env.production <<EOF
           VITE_STREAM_URL=${{ steps.api.outputs.url }}
-          VITE_FIREBASE_API_KEY=${{ vars.FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.GCP_PROJECT_ID }}.firebaseapp.com
-          VITE_FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
-          VITE_FIREBASE_VAPID_KEY=${{ vars.FIREBASE_VAPID_KEY }}
+          VITE_FIREBASE_API_KEY=${FIREBASE_API_KEY}
+          VITE_FIREBASE_AUTH_DOMAIN=${PROJECT_ID}.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID=${PROJECT_ID}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
+          VITE_FIREBASE_APP_ID=${FIREBASE_APP_ID}
+          VITE_FIREBASE_VAPID_KEY=${FIREBASE_VAPID_KEY}
           EOF
 
       - uses: actions/setup-node@v4
