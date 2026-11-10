@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConnDot } from '@/components/ConnDot'
+import { HomeDashboard } from '@/components/HomeDashboard'
 import { Inbox } from '@/components/Inbox'
-import { cardButton, ParcelList, StatusBadge } from '@/components/ParcelList'
+import { ParcelList } from '@/components/ParcelList'
 import { ParcelTimeline } from '@/components/ParcelTimeline'
 import { clearToasts, showToast, type Toast } from '@/components/Toasts'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { api } from '@/lib/api'
 import { recordAction, usePresence } from '@/lib/context'
 import { currentAlertsState, enableAlerts, listenForeground, listenWorkerNavigation, type AlertsState } from '@/lib/fcm'
+import { Icon } from '@/lib/icons'
 import { openParcel, parcelCta } from '@/lib/parcelActions'
 import { navigate, routeView, type Route } from '@/lib/route'
 import { useStream } from '@/lib/sse'
@@ -25,6 +27,12 @@ interface Props {
 }
 
 const clientId = tabClientId()
+
+const TABS = [
+  { label: 'Home', to: '/', icon: 'home', match: ['home'] },
+  { label: 'Orders', to: '/orders', icon: 'package', match: ['orders', 'parcel'] },
+  { label: 'Payments', to: '/payment', icon: 'payments', match: ['payment'] },
+] as const
 
 function openFromToast(t: Toast) {
   if (t.parcelId) openParcel(t.parcelId)
@@ -132,8 +140,6 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
   }
 
   const parcel = parcels.find((p) => p.parcel_id === parcelId)
-  const needsAttention = parcels.filter((p) => ['payment_due', 'needs_address', 'failed', 'delayed'].includes(p.status))
-  const onTheWay = parcels.filter((p) => p.status !== 'delivered')
   const due = parcels.filter((p) => p.status === 'payment_due')
 
   const container = 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10'
@@ -146,8 +152,9 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
           <button className="flex items-center gap-2 text-lg font-extrabold" onClick={() => navigate('/')}>
             <img src="/icon.svg" alt="" width={28} height={28} /> <span className="hidden sm:inline">Shippy</span>
           </button>
-          <nav className="ml-2 flex gap-1 sm:ml-6">
-            <Button variant={route.name === 'home' ? 'secondary' : 'ghost'} onClick={() => navigate('/')} className="hidden sm:inline-flex">
+          {/* Phones use the bottom tab bar instead. */}
+          <nav className="ml-6 hidden gap-1 sm:flex">
+            <Button variant={route.name === 'home' ? 'secondary' : 'ghost'} onClick={() => navigate('/')}>
               Home
             </Button>
             <Button variant={split ? 'secondary' : 'ghost'} onClick={() => navigate('/orders')}>
@@ -202,67 +209,7 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
       )}
 
       <main className={cn(container, 'flex-1 pt-6 pb-24 lg:pt-8')}>
-        {route.name === 'home' && (
-          <section>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Habari, {persona.name}</h1>
-            <p className="mt-1 text-muted-foreground">
-              {onTheWay.length} parcel{onTheWay.length === 1 ? '' : 's'} on the way from{' '}
-              {new Set(onTheWay.map((p) => p.store)).size} stores, delivered together by Shippy.
-            </p>
-
-            <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
-              {[
-                { label: 'On the way', value: onTheWay.length, tone: 'text-foreground', to: '/orders' },
-                { label: 'Need attention', value: needsAttention.length, tone: 'text-action', to: '/orders' },
-                { label: 'Fees due', value: due.length, tone: 'text-critical', to: '/payment' },
-              ].map((s) => (
-                <button key={s.label} className={cn(cardButton, 'grid justify-items-start gap-0.5 p-4')} onClick={() => navigate(s.to)}>
-                  <span className={cn('text-2xl font-bold sm:text-3xl', s.tone)}>{s.value}</span>
-                  <span className="text-xs text-muted-foreground sm:text-sm">{s.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {needsAttention.length > 0 && (
-              <>
-                <h2 className="mt-8 mb-3 text-lg font-semibold">Needs your attention</h2>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {needsAttention.map((p) => (
-                    <button key={p.parcel_id} className={cardButton} onClick={() => openParcel(p.parcel_id)}>
-                      <span className="grid min-w-0">
-                        <strong className="truncate font-semibold">{p.item}</strong>
-                        <span className="truncate text-muted-foreground">{p.store}</span>
-                      </span>
-                      <StatusBadge status={p.status} />
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-            <div className="mt-8 mb-3 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold">Your parcels</h2>
-              <Button variant="link" className="px-0" onClick={() => navigate('/orders')}>
-                View all orders
-              </Button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {parcels.map((p) => (
-                <button key={p.parcel_id} className={cn(cardButton, 'items-start')} onClick={() => openParcel(p.parcel_id)}>
-                  <span className="grid min-w-0">
-                    <strong className="truncate font-semibold">{p.item}</strong>
-                    <span className="truncate text-muted-foreground">
-                      {p.store} · {p.parcel_id}
-                    </span>
-                    {p.eta_minutes != null && p.status !== 'delivered' && (
-                      <span className="mt-1 text-sm font-semibold">~{p.eta_minutes} min</span>
-                    )}
-                  </span>
-                  <StatusBadge status={p.status} />
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+        {route.name === 'home' && <HomeDashboard persona={persona} parcels={parcels} onOpenParcel={openParcel} />}
 
         {split && (
           // Desktop: list and detail side by side. Phone: one at a time (the route decides which).
@@ -309,6 +256,29 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
           </section>
         )}
       </main>
+
+      <nav
+        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
+        aria-label="Main"
+      >
+        {TABS.map((t) => {
+          const active = (t.match as readonly string[]).includes(route.name)
+          return (
+            <button
+              key={t.label}
+              className={cn(
+                'flex flex-col items-center gap-0.5 py-2 text-xs font-medium',
+                active ? 'text-foreground' : 'text-muted-foreground',
+              )}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => navigate(t.to)}
+            >
+              <Icon name={t.icon} size={22} />
+              {t.label}
+            </button>
+          )
+        })}
+      </nav>
 
       <Toaster position="bottom-right" visibleToasts={4} />
     </div>

@@ -14,6 +14,7 @@ import {
   SentIcon,
   SourceCodeIcon,
   TickDouble02Icon,
+  Home01Icon,
   Cancel01Icon,
   CheckmarkCircle02Icon,
   Clock01Icon,
@@ -52,6 +53,9 @@ const UI_ICONS = {
   next: ArrowRight02Icon,
   external: ArrowUpRight01Icon,
   readAll: TickDouble02Icon,
+  // Customer app tab bar
+  home: Home01Icon,
+  payments: CreditCardIcon,
   // Stage page
   pipeline: GitBranchIcon,
   code: SourceCodeIcon,

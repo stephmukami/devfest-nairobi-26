@@ -10,6 +10,11 @@ from .models import ChannelResult, Decision, Event, Message
 
 log = logging.getLogger(__name__)
 
+NO_CREDENTIALS_HINT = (
+    "no Google credentials on this machine. Run `gcloud auth application-default login` "
+    "and `gcloud auth application-default set-quota-project <project>`, then restart the API"
+)
+
 
 class FcmSender:
     def __init__(self, hub: Hub, enabled: bool, project_id: str | None, public_app_url: str) -> None:
@@ -91,12 +96,18 @@ class FcmSender:
             return ChannelResult(channel="fcm", status="error", detail=f"firebase-admin unavailable: {self._init_error}")
 
         from firebase_admin import exceptions, messaging
+        from google.auth.exceptions import DefaultCredentialsError
 
         sent, errors = 0, []
         for token in tokens:
             try:
                 await asyncio.to_thread(messaging.send, self._build(token, event, message, decision), app=app)
                 sent += 1
+            except DefaultCredentialsError:
+                # Same for every token, so stop and say how to fix it. On Cloud Run this never happens.
+                log.warning("fcm send: no Application Default Credentials on this machine")
+                errors.append(NO_CREDENTIALS_HINT)
+                break
             except (messaging.UnregisteredError, messaging.SenderIdMismatchError, exceptions.InvalidArgumentError) as exc:
                 await self._hub.remove_token(token)
                 errors.append(f"removed stale token ({type(exc).__name__})")

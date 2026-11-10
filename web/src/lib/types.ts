@@ -119,6 +119,8 @@ export interface Persona {
   user_id: string
   name: string
   locale: string
+  /** Which demo situation this customer starts in. */
+  about?: string
 }
 
 export interface AppConfig {

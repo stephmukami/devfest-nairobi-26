@@ -131,14 +131,22 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
               </span>
               <span className="grid min-w-0 text-left">
                 <span className="truncate font-semibold">{persona?.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{persona?.locale}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {persona?.locale}
+                  {persona?.about ? ` · ${persona.about}` : ''}
+                </span>
               </span>
             </span>
           </SelectTrigger>
           <SelectContent>
             {config.personas.map((p) => (
               <SelectItem key={p.user_id} value={p.user_id}>
-                {p.name} ({p.locale})
+                <span className="grid">
+                  <span>
+                    {p.name} ({p.locale})
+                  </span>
+                  {p.about && <span className="text-xs text-muted-foreground">{p.about}</span>}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>

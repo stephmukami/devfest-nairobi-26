@@ -52,12 +52,6 @@ function eventJson(d: Delivery): string {
 
 type Tone = 'info' | 'action' | 'primary' | 'good'
 
-const STEP_CIRCLE: Record<Tone, string> = {
-  info: 'bg-info/15 text-info',
-  action: 'bg-action/15 text-action',
-  primary: 'bg-primary text-primary-foreground', // the AI step is the one the talk is about
-  good: 'bg-good/15 text-good',
-}
 const STEP_ICON: Record<Tone, string> = {
   info: 'text-info',
   action: 'text-action',
@@ -84,10 +78,7 @@ function Step({
     <li className="relative grid grid-cols-[2.5rem_minmax(0,1fr)] gap-4 pb-8 last:pb-0 sm:gap-6">
       {!last && <span className="absolute top-12 bottom-2 left-5 w-px bg-border" aria-hidden="true" />}
       <span
-        className={cn(
-          'relative mt-3 grid size-10 place-items-center rounded-full text-lg font-semibold ring-4 ring-card',
-          STEP_CIRCLE[tone],
-        )}
+        className="relative mt-3 grid size-10 place-items-center rounded-full bg-primary text-lg font-semibold text-primary-foreground ring-4 ring-card"
       >
         {n}
       </span>

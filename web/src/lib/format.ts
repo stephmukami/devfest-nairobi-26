@@ -1,3 +1,5 @@
+import type { IconName } from './types'
+
 export const STATUS_LABEL: Record<string, string> = {
   confirmed: 'Confirmed',
   at_hub: 'At hub',
@@ -20,6 +22,36 @@ export const STATUS_TONE: Record<string, 'neutral' | 'good' | 'warn' | 'bad'> = 
   needs_address: 'bad',
   failed: 'bad',
   delivered: 'good',
+}
+
+export const STATUS_ICON: Record<string, IconName> = {
+  confirmed: 'store',
+  at_hub: 'warehouse',
+  in_transit: 'truck',
+  out_for_delivery: 'rider',
+  payment_due: 'payment',
+  delayed: 'clock',
+  needs_address: 'location',
+  failed: 'alert',
+  delivered: 'delivered',
+}
+
+export const TONE_TEXT = {
+  neutral: 'text-muted-foreground',
+  good: 'text-good',
+  warn: 'text-action',
+  bad: 'text-critical',
+} as const
+
+/** Statuses where the customer has to do something (or should know about a problem). */
+export const ATTENTION_STATUSES = new Set(['payment_due', 'needs_address', 'failed', 'delayed'])
+
+/** "Good morning" in the persona's language. */
+export function greeting(locale: string, hour = new Date().getHours()): string {
+  const sw = locale.startsWith('sw')
+  if (hour < 12) return sw ? 'Habari za asubuhi' : 'Good morning'
+  if (hour < 17) return sw ? 'Habari za mchana' : 'Good afternoon'
+  return sw ? 'Habari za jioni' : 'Good evening'
 }
 
 export function timeOf(iso: string): string {

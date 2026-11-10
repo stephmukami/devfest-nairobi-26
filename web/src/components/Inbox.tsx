@@ -119,9 +119,12 @@ export function Inbox({ items, parcels, onMarkAllRead, onOpenItem }: Props) {
           )}
         </Button>
       </PopoverTrigger>
+      {/* Right-aligned under the bell; collisionPadding keeps a 16px gap to both screen edges on phones. */}
       <PopoverContent
         align="end"
-        className="flex max-h-[min(80vh,720px)] w-[min(420px,calc(100vw-32px))] flex-col gap-0 overflow-hidden rounded-3xl p-0 shadow-xl"
+        sideOffset={8}
+        collisionPadding={16}
+        className="flex max-h-[min(80vh,720px)] w-[min(420px,calc(100vw-32px))] flex-col gap-0 overflow-hidden rounded-xl p-0 shadow-xl"
       >
         <div className="flex items-center gap-2.5 px-5 pt-5 pb-3">
           <h3 className="text-xl font-bold">Notifications</h3>
