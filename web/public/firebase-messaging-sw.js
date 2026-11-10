@@ -30,6 +30,21 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
+// Red badge on the installed app icon (iOS Home Screen app, desktop). Runs alongside Firebase's
+// own push handler, which shows the notification. Android launchers add their dot from the
+// notification itself and do not support setAppBadge.
+self.addEventListener('push', (event) => {
+  let count = NaN
+  try {
+    count = Number(event.data.json().data.badge)
+  } catch (_) {
+    /* not one of ours */
+  }
+  if (count > 0 && self.navigator.setAppBadge) {
+    event.waitUntil(self.navigator.setAppBadge(count).catch(() => {}))
+  }
+})
+
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js')
 

@@ -115,6 +115,15 @@ export function listenForeground(cb: (p: ForegroundPush) => void): () => void {
   }
 }
 
+/** Badging API: a red count on the installed app's icon (iOS Home Screen app, desktop PWA).
+ *  Android Chrome lacks it; launchers there draw a dot from the notification instead. */
+export function syncAppBadge(count: number): void {
+  const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
+  if (!nav.setAppBadge || !('Notification' in window) || Notification.permission !== 'granted') return
+  const done = count > 0 ? nav.setAppBadge(count) : nav.clearAppBadge?.()
+  void done?.catch(() => {})
+}
+
 /** The service worker asks an open tab to navigate when a notification is clicked. */
 export function listenWorkerNavigation(navigate: (path: string) => void): () => void {
   if (!('serviceWorker' in navigator)) return () => {}

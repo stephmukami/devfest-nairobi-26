@@ -56,10 +56,10 @@ function Row({
   return (
     <li className="relative flex gap-3 px-5 py-4">
       {!item.read && (
-        // Level with the icon's centre (row padding 1rem + half the 3rem icon).
-        <span className="absolute top-10 left-2 size-1.5 -translate-y-1/2 rounded-full bg-critical" aria-label="Unread" />
+        // Level with the icon's centre (row padding 1rem + half the 2rem icon).
+        <span className="absolute top-8 left-2 size-1.5 -translate-y-1/2 rounded-full bg-critical" aria-label="Unread" />
       )}
-      <NoteIcon name={item.icon} priority={item.priority} size="lg" />
+      <NoteIcon name={item.icon} priority={item.priority} size="sm" />
       <div className="min-w-0 flex-1">
         <button className="block w-full text-left" onClick={onOpen}>
           <span className="flex items-baseline justify-between gap-3">

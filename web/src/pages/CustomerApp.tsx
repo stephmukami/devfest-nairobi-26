@@ -10,7 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Toaster } from '@/components/ui/sonner'
 import { api } from '@/lib/api'
 import { recordAction, usePresence } from '@/lib/context'
-import { currentAlertsState, enableAlerts, listenForeground, listenWorkerNavigation, type AlertsState } from '@/lib/fcm'
+import {
+  currentAlertsState,
+  enableAlerts,
+  listenForeground,
+  listenWorkerNavigation,
+  syncAppBadge,
+  type AlertsState,
+} from '@/lib/fcm'
 import { Icon } from '@/lib/icons'
 import { openParcel, parcelCta } from '@/lib/parcelActions'
 import { navigate, routeView, type Route } from '@/lib/route'
@@ -78,6 +85,10 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
   }, [userId])
 
   useEffect(() => listenWorkerNavigation(navigate), [])
+
+  // App icon badge (installed app): mirror the inbox, so reading it clears the red dot.
+  const unread = inbox.filter((i) => !i.read).length
+  useEffect(() => syncAppBadge(unread), [unread])
 
   useEffect(
     () =>

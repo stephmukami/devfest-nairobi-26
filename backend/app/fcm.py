@@ -49,7 +49,7 @@ class FcmSender:
         path = f"/parcels/{parcel_id}" if parcel_id else "/"
         return f"{self._public_app_url}{path}"
 
-    def _build(self, token: str, event: Event, message: Message, decision: Decision):
+    def _build(self, token: str, event: Event, message: Message, decision: Decision, badge: int = 1):
         from firebase_admin import messaging
 
         parcel_id = event.parcel_id
@@ -64,6 +64,8 @@ class FcmSender:
                 "deep_link": link,
                 "priority": event.priority,
                 "icon": message.icon,  # foreground toasts render it; OS notifications use /icon-192.png
+                # Unread count for the installed app's icon badge (service worker calls setAppBadge).
+                "badge": str(badge),
             },
             webpush=messaging.WebpushConfig(
                 # Always high on the wire: info events never push, and FCM holds "normal" web pushes
@@ -79,6 +81,8 @@ class FcmSender:
                     tag=parcel_id or event.event_id,
                     renotify=True,
                     require_interaction=critical,
+                    silent=False,
+                    vibrate=[300, 100, 300],
                 ),
                 # FCM only accepts https links; on localhost the service worker handles clicks.
                 fcm_options=messaging.WebpushFCMOptions(link=link) if link.startswith("https://") else None,
@@ -98,10 +102,12 @@ class FcmSender:
         from firebase_admin import exceptions, messaging
         from google.auth.exceptions import DefaultCredentialsError
 
+        # This event's inbox item is added after the push, hence the + 1.
+        badge = sum(1 for item in self._hub.inbox(user_id) if not item.read) + 1
         sent, errors = 0, []
         for token in tokens:
             try:
-                await asyncio.to_thread(messaging.send, self._build(token, event, message, decision), app=app)
+                await asyncio.to_thread(messaging.send, self._build(token, event, message, decision, badge), app=app)
                 sent += 1
             except DefaultCredentialsError:
                 # Same for every token, so stop and say how to fix it. On Cloud Run this never happens.
