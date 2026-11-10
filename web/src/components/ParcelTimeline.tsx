@@ -1,5 +1,6 @@
 import { recordAction } from '../lib/context'
 import { timeOf } from '../lib/format'
+import { Icon } from '../lib/icons'
 import type { Parcel } from '../lib/types'
 import { StatusBadge } from './ParcelList'
 
@@ -15,7 +16,7 @@ export function ParcelTimeline({ parcel, flashId, onBack, onPay }: Props) {
     return (
       <section>
         <button className="link" onClick={onBack}>
-          ← Orders
+          <Icon name="back" size={16} /> Orders
         </button>
         <p className="muted">Parcel not found for this customer.</p>
       </section>
@@ -26,7 +27,7 @@ export function ParcelTimeline({ parcel, flashId, onBack, onPay }: Props) {
   return (
     <section>
       <button className="link" onClick={onBack}>
-        ← Orders
+        <Icon name="back" size={16} /> Orders
       </button>
       <div className="detail-head">
         <div>

@@ -86,8 +86,8 @@ async def session_context(update: ContextUpdate):
 
 @app.post("/api/devices")
 async def register_device(reg: DeviceRegistration):
-    hub.add_token(_user(reg.user_id), reg.token)
-    return {"ok": True, "devices": len(hub.tokens(reg.user_id))}
+    await hub.add_token(_user(reg.user_id), reg.token)
+    return {"ok": True, "devices": len(await hub.tokens(reg.user_id))}
 
 
 @app.get("/api/stream")

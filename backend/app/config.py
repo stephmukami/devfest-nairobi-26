@@ -47,6 +47,8 @@ class Settings:
     public_app_url: str = ""
     fcm_enabled: bool = True
     firebase_project_id: str | None = None
+    # "firestore" persists FCM device tokens across restarts; "memory" needs no credentials.
+    token_store: Literal["memory", "firestore"] = "memory"
     rate_limit_per_min: int = 60
     replay_buffer_size: int = 50
     coalesce_window_s: float = 2.0
@@ -67,6 +69,7 @@ class Settings:
             public_app_url=(os.getenv("PUBLIC_APP_URL") or "").rstrip("/"),
             fcm_enabled=_bool("FCM_ENABLED", True),
             firebase_project_id=os.getenv("FIREBASE_PROJECT_ID") or None,
+            token_store="firestore" if (os.getenv("TOKEN_STORE") or "").strip().lower() == "firestore" else "memory",
             rate_limit_per_min=int(os.getenv("RATE_LIMIT_PER_MIN") or 60),
             replay_buffer_size=int(os.getenv("REPLAY_BUFFER_SIZE") or 50),
             coalesce_window_s=float(os.getenv("COALESCE_WINDOW_S") or 2.0),

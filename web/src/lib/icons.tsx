@@ -1,6 +1,8 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Alert02Icon,
+  ArrowLeft02Icon,
+  ArrowRight02Icon,
   Cancel01Icon,
   CheckmarkCircle02Icon,
   Clock01Icon,
@@ -29,6 +31,18 @@ const ICONS: Record<IconName, typeof PackageIcon> = {
   payment: CreditCardIcon,
   cancel: Cancel01Icon,
   bell: Notification01Icon,
+}
+
+// UI chrome icons (not sent by the server).
+const UI_ICONS = {
+  bell: Notification01Icon,
+  close: Cancel01Icon,
+  back: ArrowLeft02Icon,
+  next: ArrowRight02Icon,
+} as const
+
+export function Icon({ name, size = 20, className }: { name: keyof typeof UI_ICONS; size?: number; className?: string }) {
+  return <HugeiconsIcon icon={UI_ICONS[name]} size={size} strokeWidth={1.8} className={className} aria-hidden="true" />
 }
 
 export function NotificationIcon({ name, size = 22, className }: { name: string | null | undefined; size?: number; className?: string }) {

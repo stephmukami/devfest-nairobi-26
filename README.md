@@ -24,7 +24,8 @@ Demo controller ─▶ FastAPI (Cloud Run)
 | [backend/app/router.py](backend/app/router.py) | Decision engine. Pure function, table-tested |
 | [backend/app/catalogue.py](backend/app/catalogue.py) | Event type → priority, status, fallback templates |
 | [backend/app/enrich.py](backend/app/enrich.py) | Gemini call, output validation, cache, fallbacks, kill switches |
-| [backend/app/hub.py](backend/app/hub.py) | Connections, presence, replay buffer, inbox, FCM tokens (in memory) |
+| [backend/app/hub.py](backend/app/hub.py) | Connections, presence, replay buffer, inbox (in memory) |
+| [backend/app/tokens.py](backend/app/tokens.py) | FCM device tokens: in memory, or Firestore with `TOKEN_STORE=firestore` so they survive restarts |
 | [backend/app/pipeline.py](backend/app/pipeline.py) | Event → decision → words → channel, plus burst coalescing |
 | [backend/app/fcm.py](backend/app/fcm.py) | firebase-admin web push, stale token cleanup |
 | [backend/app/demo.py](backend/app/demo.py) | Scenario endpoints, `X-Demo-Key`, rate limit |
@@ -114,6 +115,10 @@ gcloud auth login
 .\scripts\setup-github-deploy.ps1 -ProjectId shippy-6b185 -Repo <github-user>/<repo-name>
 ```
 
+The script also creates the `(default)` Firestore database (FCM device tokens, free tier) and grants
+the Cloud Run service account access. Deploy the deny-all [firestore.rules](firestore.rules) once with
+`npx firebase-tools deploy --only firestore:rules --project <project>`.
+
 Then add the variables and the `DEMO_KEY` secret the script prints under
 *Settings → Secrets and variables → Actions*. The jobs use a `production` environment, which GitHub
 creates on first run; add required reviewers to it if you want a manual approval before deploys.
@@ -138,11 +143,11 @@ a VAPID key, `gemini-api-key` in Secret Manager, and the Cloud Run service accou
      --max-instances 1 --min-instances 1 \
      --no-cpu-throttling \
      --set-secrets GEMINI_API_KEY=gemini-api-key:latest \
-     --set-env-vars "^@^GEMINI_MODEL=<model>@ALLOWED_ORIGIN=https://<site>.web.app,https://<site>.firebaseapp.com@PUBLIC_APP_URL=https://<site>.web.app@DEMO_KEY=<random>@FIREBASE_PROJECT_ID=<project>"
+     --set-env-vars "^@^GEMINI_MODEL=<model>@ALLOWED_ORIGIN=https://<site>.web.app,https://<site>.firebaseapp.com@PUBLIC_APP_URL=https://<site>.web.app@DEMO_KEY=<random>@FIREBASE_PROJECT_ID=<project>@TOKEN_STORE=firestore"
    ```
 
    The `^@^` prefix changes gcloud's list delimiter so `ALLOWED_ORIGIN` can hold a comma.
-   `--max-instances 1` is required (state is in memory); `--timeout 3600` keeps streams alive;
+   `--max-instances 1` is required (state other than FCM tokens is in memory); `--timeout 3600` keeps streams alive;
    `--min-instances 1` avoids a cold start on stage.
 
 3. Frontend → Firebase Hosting. In `web/.env.production` set the Firebase config, the VAPID key, and
@@ -172,7 +177,7 @@ Wanjiru persona (Swahili wording from the same facts).
 
 ## Production notes (not in this demo)
 
-- Replace the in-memory hub with Pub/Sub for fan-out and Firestore or Redis for presence and tokens, then lift `--max-instances 1`.
+- Replace the in-memory hub with Pub/Sub for fan-out and Firestore or Redis for presence, then lift `--max-instances 1`. FCM tokens are already in Firestore.
 - Real auth (Firebase Auth). `EventSource` cannot set headers, so use a cookie or a short-lived stream token instead of `user_id` in the query string.
 - Move Gemini to Vertex AI (IAM auth, no API key). The `Enricher` interface also allows an on-device swap to Chrome Built-in AI.
-- iOS Safari web push needs iOS 16.4+ and a Home Screen install. Use Android or desktop Chrome on stage.
+- iOS web push needs iOS 16.4+ and a Home Screen install (the app ships a manifest for this). Android or desktop Chrome is simpler on stage.

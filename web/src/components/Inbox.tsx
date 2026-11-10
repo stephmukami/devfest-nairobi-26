@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { timeOf } from '../lib/format'
-import { NotificationIcon } from '../lib/icons'
+import { Icon, NotificationIcon } from '../lib/icons'
 import type { InboxItem } from '../lib/types'
 
 interface Props {
@@ -33,12 +33,7 @@ export function Inbox({ items, onOpenPanel, onOpenItem }: Props) {
           if (!open) onOpenPanel()
         }}
       >
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path
-            d="M12 3a6 6 0 0 0-6 6v3.6L4.3 15.5A1 1 0 0 0 5.2 17h13.6a1 1 0 0 0 .9-1.5L18 12.6V9a6 6 0 0 0-6-6Zm0 19a3 3 0 0 0 2.8-2H9.2A3 3 0 0 0 12 22Z"
-            fill="currentColor"
-          />
-        </svg>
+        <Icon name="bell" size={22} />
         {unread > 0 && <span className="badge">{unread}</span>}
       </button>
       {open && (

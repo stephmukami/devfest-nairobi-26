@@ -1,7 +1,8 @@
-"""In-memory hub: SSE connections, presence, replay buffer, inbox and FCM tokens.
+"""In-memory hub: SSE connections, presence, replay buffer and inbox. FCM tokens go through a
+token store (tokens.py), which is Firestore-backed in production so they survive restarts.
 
-All state lives in this process, which is why Cloud Run runs with --max-instances 1.
-Production swap: Pub/Sub for fan-out, Firestore or Redis for presence and tokens.
+All other state lives in this process, which is why Cloud Run runs with --max-instances 1.
+Production swap: Pub/Sub for fan-out, Firestore or Redis for presence.
 """
 
 from __future__ import annotations
@@ -16,11 +17,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from .models import Context, Delivery, InboxItem, SessionState
+from .tokens import MemoryTokenStore
 
 log = logging.getLogger(__name__)
 
 MAX_CLIENTS_PER_USER = 20
-MAX_TOKENS_PER_USER = 10
 MAX_INBOX = 100
 
 QueueItem = tuple[str, str | None, str]  # (sse event name, sse id, json data)
@@ -46,14 +47,14 @@ def _iso(ts: float) -> str:
 
 
 class Hub:
-    def __init__(self, buffer_size: int = 50) -> None:
+    def __init__(self, buffer_size: int = 50, token_store: MemoryTokenStore | None = None) -> None:
         self._ids = itertools.count(1)
         self._buffer_size = buffer_size
         self._conns: dict[str, dict[int, Connection]] = {}
         self._clients: dict[str, dict[str, ClientPresence]] = {}
         self._buffers: dict[str, deque[Delivery]] = {}
         self._inbox: dict[str, list[InboxItem]] = {}
-        self._tokens: dict[str, set[str]] = {}
+        self._token_store = token_store or MemoryTokenStore()
 
     # ------------------------------------------------------------ connections
 
@@ -199,22 +200,14 @@ class Hub:
 
     # ------------------------------------------------------------ device tokens
 
-    def add_token(self, user_id: str, token: str) -> None:
-        # A browser token belongs to one persona at a time in this demo.
-        for other, tokens in self._tokens.items():
-            if other != user_id:
-                tokens.discard(token)
-        tokens = self._tokens.setdefault(user_id, set())
-        if token not in tokens and len(tokens) >= MAX_TOKENS_PER_USER:
-            tokens.pop()
-        tokens.add(token)
+    async def add_token(self, user_id: str, token: str) -> None:
+        await self._token_store.add(user_id, token)
 
-    def remove_token(self, token: str) -> None:
-        for tokens in self._tokens.values():
-            tokens.discard(token)
+    async def remove_token(self, token: str) -> None:
+        await self._token_store.remove(token)
 
-    def tokens(self, user_id: str) -> list[str]:
-        return sorted(self._tokens.get(user_id, set()))
+    async def tokens(self, user_id: str) -> list[str]:
+        return await self._token_store.for_user(user_id)
 
     # ------------------------------------------------------------ demo reset
 

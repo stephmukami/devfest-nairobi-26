@@ -79,7 +79,7 @@ class FcmSender:
     async def send(self, user_id: str, event: Event, message: Message, decision: Decision) -> ChannelResult:
         if not self._enabled:
             return ChannelResult(channel="fcm", status="disabled", detail="FCM_ENABLED is off")
-        tokens = self._hub.tokens(user_id)
+        tokens = await self._hub.tokens(user_id)
         if not tokens:
             return ChannelResult(channel="fcm", status="no_tokens", detail="No device has enabled alerts for this user")
         app = self._ensure_app()
@@ -94,7 +94,7 @@ class FcmSender:
                 await asyncio.to_thread(messaging.send, self._build(token, event, message, decision), app=app)
                 sent += 1
             except (messaging.UnregisteredError, messaging.SenderIdMismatchError, exceptions.InvalidArgumentError) as exc:
-                self._hub.remove_token(token)
+                await self._hub.remove_token(token)
                 errors.append(f"removed stale token ({type(exc).__name__})")
             except Exception as exc:
                 log.warning("fcm send failed: %r", exc)

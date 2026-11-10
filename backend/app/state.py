@@ -10,12 +10,18 @@ from .fcm import FcmSender
 from .hub import Hub
 from .parcels import ParcelStore
 from .pipeline import Pipeline
+from .tokens import FirestoreTokenStore, MemoryTokenStore
 
 log = logging.getLogger(__name__)
 
 
 def _build() -> Pipeline:
-    hub = Hub(buffer_size=settings.replay_buffer_size)
+    if settings.token_store == "firestore":
+        log.info("FCM tokens: Firestore (project %s)", settings.firebase_project_id or "from ADC")
+        token_store = FirestoreTokenStore(settings.firebase_project_id)
+    else:
+        token_store = MemoryTokenStore()
+    hub = Hub(buffer_size=settings.replay_buffer_size, token_store=token_store)
     generate = None
     if settings.gemini_api_key:
         generate = make_gemini_generate(

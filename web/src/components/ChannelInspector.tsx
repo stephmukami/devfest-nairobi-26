@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { shortType, timeOf } from '../lib/format'
-import { NotificationIcon } from '../lib/icons'
+import { Icon, NotificationIcon } from '../lib/icons'
 import type { Delivery } from '../lib/types'
 
 const ACTION_LABEL: Record<string, string> = {
@@ -72,7 +72,7 @@ export function ChannelInspector({ deliveries }: { deliveries: Delivery[] }) {
           <pre>{eventJson(d)}</pre>
         </article>
 
-        <div className="arrow" aria-hidden="true">→</div>
+        <div className="arrow" aria-hidden="true"><Icon name="next" size={28} /></div>
 
         <article className="stage-card">
           <header>
@@ -95,7 +95,7 @@ export function ChannelInspector({ deliveries }: { deliveries: Delivery[] }) {
           </dl>
         </article>
 
-        <div className="arrow" aria-hidden="true">→</div>
+        <div className="arrow" aria-hidden="true"><Icon name="next" size={28} /></div>
 
         <article className="stage-card">
           <header>
@@ -131,7 +131,7 @@ export function ChannelInspector({ deliveries }: { deliveries: Delivery[] }) {
           )}
         </article>
 
-        <div className="arrow" aria-hidden="true">→</div>
+        <div className="arrow" aria-hidden="true"><Icon name="next" size={28} /></div>
 
         <article className="stage-card">
           <header>

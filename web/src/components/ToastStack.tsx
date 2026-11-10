@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { NotificationIcon } from '../lib/icons'
+import { Icon, NotificationIcon } from '../lib/icons'
 import type { Priority } from '../lib/types'
 
 export interface Toast {
@@ -38,7 +38,7 @@ function ToastCard({ toast, onDismiss, onOpen }: { toast: Toast } & Omit<Props, 
         </span>
       </button>
       <button className="toast-close" aria-label="Dismiss" onClick={() => onDismiss(toast.id)}>
-        ×
+        <Icon name="close" size={16} />
       </button>
       {toast.sticky && <span className="toast-tag">Needs action</span>}
     </div>

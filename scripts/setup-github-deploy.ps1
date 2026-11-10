@@ -50,7 +50,7 @@ Write-Host "Enabling APIs..."
 Run @("services", "enable", "--project", $ProjectId,
   "iamcredentials.googleapis.com", "sts.googleapis.com", "run.googleapis.com",
   "cloudbuild.googleapis.com", "artifactregistry.googleapis.com",
-  "secretmanager.googleapis.com", "firebasehosting.googleapis.com")
+  "secretmanager.googleapis.com", "firebasehosting.googleapis.com", "firestore.googleapis.com")
 
 Write-Host "Deployer service account..."
 if (-not (Exists @("iam", "service-accounts", "describe", $Deployer, "--project", $ProjectId))) {
@@ -71,6 +71,26 @@ foreach ($role in @(
 # Let the deployer deploy services that run as the default compute service account.
 RunRetry @("iam", "service-accounts", "add-iam-policy-binding", $RuntimeSa, "--project", $ProjectId,
   "--member", "serviceAccount:$Deployer", "--role", "roles/iam.serviceAccountUser", "--quiet") | Out-Null
+
+Write-Host "Firestore (FCM device tokens, TOKEN_STORE=firestore)..."
+# Only the "(default)" database gets the free daily quota. Its location can never be changed.
+if (-not (Exists @("firestore", "databases", "describe", "--database=(default)", "--project", $ProjectId))) {
+  Run @("firestore", "databases", "create", "--database=(default)", "--location", $Region,
+    "--type", "firestore-native", "--project", $ProjectId)
+} else {
+  $DbLocation = (& gcloud firestore databases describe "--database=(default)" --project $ProjectId --format="value(locationId)").Trim()
+  if ($DbLocation -ne $Region) {
+    Write-Host "  (default) database already exists in $DbLocation (Cloud Run is in $Region). That works, with a little extra latency." -ForegroundColor Yellow
+  }
+}
+# The API reads and writes tokens as the Cloud Run runtime service account.
+RunRetry @("projects", "add-iam-policy-binding", $ProjectId, "--member", "serviceAccount:$RuntimeSa",
+  "--role", "roles/datastore.user", "--condition", "None", "--quiet") | Out-Null
+# Tokens nobody has refreshed in 60 days are deleted automatically (backend/app/tokens.py sets expires_at).
+$ErrorActionPreference = "Continue"
+& gcloud firestore fields ttls update expires_at --collection-group=fcm_tokens --enable-ttl --async --project $ProjectId --quiet *> $null
+if ($LASTEXITCODE -ne 0) { Write-Host "  TTL policy not changed (it may already be on)." -ForegroundColor Yellow }
+$ErrorActionPreference = "Stop"
 
 Write-Host "Workload Identity pool and provider..."
 if (-not (Exists @("iam", "workload-identity-pools", "describe", $Pool, "--project", $ProjectId, "--location", "global"))) {
@@ -113,3 +133,6 @@ Write-Host "Secrets:"
 Write-Host "  DEMO_KEY                      = <your demo key>"
 Write-Host ""
 Write-Host "Or with the GitHub CLI, e.g.:  gh variable set GCP_WIF_PROVIDER --body `"$ProviderName`""
+Write-Host ""
+Write-Host 'Once, from the repo root, lock Firestore to the backend only (needs "npx firebase-tools login" first):' -ForegroundColor Green
+Write-Host "  npx firebase-tools deploy --only firestore:rules --project $ProjectId"
