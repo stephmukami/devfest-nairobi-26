@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
-import { api, getDemoKey, setDemoKey } from '../lib/api'
-import type { AppConfig, Parcel, Presence, Switches } from '../lib/types'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import { api, getDemoKey, setDemoKey } from '@/lib/api'
+import { PRIORITY_BORDER_L, PRIORITY_TEXT } from '@/lib/priority'
+import type { AppConfig, Parcel, Presence, Switches } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 interface Props {
   config: AppConfig
@@ -19,6 +28,12 @@ function describeSession(p: Presence | null): string {
   if (!s.visible) return `${tabs} · hidden`
   return `${tabs} · visible · ${s.view}${s.parcel_id ? ` ${s.parcel_id}` : ''}`
 }
+
+function GroupLabel({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <h3 className={cn('mt-1 text-[0.72rem] tracking-widest text-muted-foreground uppercase', className)}>{children}</h3>
+}
+
+const emitButton = 'h-auto w-full justify-start border-l-4 py-1.5 font-mono text-xs whitespace-normal'
 
 export function DemoController({ config, userId, onUserChange, parcels, presence, onAfterReset }: Props) {
   const [parcelId, setParcelId] = useState('')
@@ -54,110 +69,154 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
     types: config.catalogue.filter((c) => c.priority === priority),
   }))
 
+  const switchRows: { id: string; checked: boolean; onChange: (v: boolean) => void; label: React.ReactNode }[] = [
+    {
+      id: 'sw-gemini',
+      checked: switches.enrich_mode === 'gemini',
+      onChange: (v) => toggle({ enrich_mode: v ? 'gemini' : 'template' }),
+      label: (
+        <>
+          Gemini enrichment{' '}
+          {!config.gemini_configured && <em className="font-normal text-muted-foreground">(no API key, templates only)</em>}
+        </>
+      ),
+    },
+    {
+      id: 'sw-outage',
+      checked: switches.simulate_gemini_failure,
+      onChange: (v) => toggle({ simulate_gemini_failure: v }),
+      label: 'Simulate Gemini outage',
+    },
+    {
+      id: 'sw-coalesce',
+      checked: switches.coalesce,
+      onChange: (v) => toggle({ coalesce: v }),
+      label: 'Coalesce bursts (2 s window)',
+    },
+  ]
+
   return (
-    <aside className="controller">
-      <h2>Demo controller</h2>
+    <Card className="min-[800px]:sticky min-[800px]:top-4">
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold">Demo controller</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="dc-customer" className="text-muted-foreground">
+            Customer
+          </Label>
+          <Select value={userId} onValueChange={onUserChange}>
+            <SelectTrigger id="dc-customer" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {config.personas.map((p) => (
+                <SelectItem key={p.user_id} value={p.user_id}>
+                  {p.name} ({p.locale})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      <label className="field">
-        <span>Customer</span>
-        <select value={userId} onChange={(e) => onUserChange(e.target.value)}>
-          {config.personas.map((p) => (
-            <option key={p.user_id} value={p.user_id}>
-              {p.name} ({p.locale})
-            </option>
-          ))}
-        </select>
-      </label>
+        <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
+          <span className={cn('size-2 rounded-full', presence?.session.visible ? 'bg-good' : 'bg-muted-foreground')} />
+          {describeSession(presence)}
+        </div>
 
-      <div className={`session-pill ${presence?.session.visible ? 'on' : ''}`}>
-        <span className="dot" /> {describeSession(presence)}
-      </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="dc-parcel" className="text-muted-foreground">
+            Parcel
+          </Label>
+          <Select value={parcelId} onValueChange={setParcelId}>
+            <SelectTrigger id="dc-parcel" className="w-full">
+              <SelectValue placeholder="No parcels" />
+            </SelectTrigger>
+            <SelectContent>
+              {parcels.map((p) => (
+                <SelectItem key={p.parcel_id} value={p.parcel_id}>
+                  {p.parcel_id} · {p.item} ({p.status})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      <label className="field">
-        <span>Parcel</span>
-        <select value={parcelId} onChange={(e) => setParcelId(e.target.value)}>
-          {parcels.map((p) => (
-            <option key={p.parcel_id} value={p.parcel_id}>
-              {p.parcel_id} · {p.item} ({p.status})
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {byPriority.map(({ priority, types }) => (
-        <div key={priority} className="emit-group">
-          <h3 className={`p-label p-${priority}`}>{priority}</h3>
-          <div className="emit-buttons">
+        {byPriority.map(({ priority, types }) => (
+          <div key={priority} className="grid gap-1.5">
+            <GroupLabel className={PRIORITY_TEXT[priority]}>{priority}</GroupLabel>
             {types.map((t) => (
-              <button
+              <Button
                 key={t.type}
-                className={`emit p-${priority}`}
+                variant="outline"
+                className={cn(emitButton, PRIORITY_BORDER_L[priority])}
                 title={t.meaning}
                 disabled={busy !== null}
                 onClick={() => run(t.type, () => api.emit(userId, t.type, parcelId || undefined))}
               >
                 {t.type}
-              </button>
+              </Button>
             ))}
           </div>
+        ))}
+
+        <div className="grid gap-1.5">
+          <GroupLabel>scenario</GroupLabel>
+          <Button
+            variant="outline"
+            className={cn(emitButton, 'border-l-muted-foreground')}
+            disabled={busy !== null}
+            onClick={() => run('burst', () => api.burst(userId))}
+          >
+            Burst: 3 events at once
+          </Button>
         </div>
-      ))}
 
-      <div className="emit-group">
-        <h3 className="p-label">scenario</h3>
-        <button className="emit" disabled={busy !== null} onClick={() => run('burst', () => api.burst(userId))}>
-          Burst: 3 events at once
-        </button>
-      </div>
+        <Separator />
+        <GroupLabel>Kill switches</GroupLabel>
+        {switchRows.map((s) => (
+          <div key={s.id} className="flex items-center gap-2.5">
+            <Switch id={s.id} checked={s.checked} onCheckedChange={s.onChange} />
+            <Label htmlFor={s.id} className="font-normal">
+              {s.label}
+            </Label>
+          </div>
+        ))}
 
-      <h3 className="p-label">Kill switches</h3>
-      <label className="switch">
-        <input
-          type="checkbox"
-          checked={switches.enrich_mode === 'gemini'}
-          onChange={(e) => toggle({ enrich_mode: e.target.checked ? 'gemini' : 'template' })}
-        />
-        <span>
-          Gemini enrichment{' '}
-          {!config.gemini_configured && <em className="muted">(no API key, templates only)</em>}
-        </span>
-      </label>
-      <label className="switch">
-        <input
-          type="checkbox"
-          checked={switches.simulate_gemini_failure}
-          onChange={(e) => toggle({ simulate_gemini_failure: e.target.checked })}
-        />
-        <span>Simulate Gemini outage</span>
-      </label>
-      <label className="switch">
-        <input type="checkbox" checked={switches.coalesce} onChange={(e) => toggle({ coalesce: e.target.checked })} />
-        <span>Coalesce bursts (2 s window)</span>
-      </label>
+        <Button
+          variant="outline"
+          className="border-dashed text-muted-foreground"
+          disabled={busy !== null}
+          onClick={() =>
+            run('reset', async () => {
+              await api.reset()
+              onAfterReset()
+            })
+          }
+        >
+          Reset demo data
+        </Button>
 
-      <button className="reset" disabled={busy !== null} onClick={() => run('reset', async () => {
-        await api.reset()
-        onAfterReset()
-      })}>
-        Reset demo data
-      </button>
+        {config.demo_key_required && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="dc-key" className="text-muted-foreground">
+              Demo key
+            </Label>
+            <Input
+              id="dc-key"
+              type="password"
+              value={key}
+              onChange={(e) => {
+                setKey(e.target.value)
+                setDemoKey(e.target.value)
+              }}
+            />
+          </div>
+        )}
 
-      {config.demo_key_required && (
-        <label className="field">
-          <span>Demo key</span>
-          <input
-            type="password"
-            value={key}
-            onChange={(e) => {
-              setKey(e.target.value)
-              setDemoKey(e.target.value)
-            }}
-          />
-        </label>
-      )}
-
-      {busy && <p className="muted">Sending {busy}…</p>}
-      {error && <p className="error">{error}</p>}
-    </aside>
+        {busy && <p className="text-sm text-muted-foreground">Sending {busy}…</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </CardContent>
+    </Card>
   )
 }

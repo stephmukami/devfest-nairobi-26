@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ChannelInspector } from '../components/ChannelInspector'
-import { DemoController } from '../components/DemoController'
-import { api } from '../lib/api'
-import { useStream } from '../lib/sse'
-import { tabClientId } from '../lib/storage'
-import type { AppConfig, Delivery, Parcel, Presence } from '../lib/types'
+import { ChannelInspector } from '@/components/ChannelInspector'
+import { ConnDot } from '@/components/ConnDot'
+import { DemoController } from '@/components/DemoController'
+import { Button } from '@/components/ui/button'
+import { api } from '@/lib/api'
+import { Icon } from '@/lib/icons'
+import { useStream } from '@/lib/sse'
+import { tabClientId } from '@/lib/storage'
+import type { AppConfig, Delivery, Parcel, Presence } from '@/lib/types'
 
 interface Props {
   config: AppConfig
@@ -37,20 +40,20 @@ export function StagePage({ config, userId, onUserChange }: Props) {
   const status = useStream({ userId, clientId, observer: true, onDelivery, onPresence: setPresence })
 
   return (
-    <div className="stage">
-      <header className="stage-top">
-        <h1>
+    <div className="min-h-screen px-5 py-4 text-[1.05rem]">
+      <header className="mb-4 flex flex-wrap items-center gap-4">
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold">
           <img src="/icon.svg" alt="" width={32} height={32} /> Signals over noise
         </h1>
-        <span className="muted">
-          Events carry facts. Rules decide who hears. AI decides the words.
-        </span>
-        <span className={`conn conn-${status}`} title={`Inspector stream: ${status}`} />
-        <a href="/" target="_blank" rel="noreferrer" className="link">
-          Open customer app ↗
-        </a>
+        <span className="text-muted-foreground">Events carry facts. Rules decide who hears. AI decides the words.</span>
+        <ConnDot status={status} label="Inspector stream" />
+        <Button variant="link" asChild className="ml-auto font-semibold">
+          <a href="/" target="_blank" rel="noreferrer">
+            Open customer app <Icon name="external" size={16} />
+          </a>
+        </Button>
       </header>
-      <div className="stage-body">
+      <div className="grid items-start gap-5 min-[800px]:grid-cols-[300px_1fr]">
         <DemoController
           config={config}
           userId={userId}

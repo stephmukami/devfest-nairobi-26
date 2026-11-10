@@ -17,7 +17,15 @@ export const fcmConfigured = Boolean(
   firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.messagingSenderId && firebaseConfig.appId && vapidKey,
 )
 
-export type AlertsState = 'not_configured' | 'unsupported' | 'default' | 'denied' | 'granted' | 'error'
+export type AlertsState = 'not_configured' | 'unsupported' | 'ios_install' | 'default' | 'denied' | 'granted' | 'error'
+
+/** iOS only delivers web push to a site added to the Home Screen and opened from its icon.
+ *  Safari tabs, Chrome (CriOS) and the Google app on iPhone never get a push subscription. */
+function iosNeedsInstall(): boolean {
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
+  return ios && !standalone
+}
 
 let app: FirebaseApp | null = null
 let messaging: Messaging | null = null
@@ -39,6 +47,7 @@ async function registerWorker(): Promise<ServiceWorkerRegistration> {
 
 export async function currentAlertsState(): Promise<AlertsState> {
   if (!fcmConfigured) return 'not_configured'
+  if (iosNeedsInstall()) return 'ios_install'
   if (!('Notification' in window) || !(await isSupported())) return 'unsupported'
   return Notification.permission as AlertsState
 }
@@ -49,10 +58,15 @@ export async function currentAlertsState(): Promise<AlertsState> {
  * Called on every load too (tokens are held in memory server-side, so a restart loses them).
  */
 export async function enableAlerts(userId: string, fromGesture: boolean): Promise<AlertsState> {
-  const m = await ensureMessaging()
-  if (!m) return fcmConfigured ? 'unsupported' : 'not_configured'
+  if (!fcmConfigured) return 'not_configured'
+  if (iosNeedsInstall()) return 'ios_install'
+  if (!('Notification' in window)) return 'unsupported'
+  // Ask before any await: Safari drops the click's user activation across async hops
+  // and then refuses the prompt.
   let permission = Notification.permission
   if (permission === 'default' && fromGesture) permission = await Notification.requestPermission()
+  const m = await ensureMessaging()
+  if (!m) return 'unsupported'
   if (permission !== 'granted') return permission as AlertsState
   try {
     const serviceWorkerRegistration = await registerWorker()

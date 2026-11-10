@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
-import { timeOf } from '../lib/format'
-import { Icon, NotificationIcon } from '../lib/icons'
-import type { InboxItem } from '../lib/types'
+import { useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Separator } from '@/components/ui/separator'
+import { timeOf } from '@/lib/format'
+import { Icon } from '@/lib/icons'
+import { PRIORITY_BORDER_L } from '@/lib/priority'
+import type { InboxItem } from '@/lib/types'
+import { cn } from '@/lib/utils'
+import { NoteIcon } from './NoteIcon'
 
 interface Props {
   items: InboxItem[]
@@ -11,58 +18,57 @@ interface Props {
 
 export function Inbox({ items, onOpenPanel, onOpenItem }: Props) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
   const unread = items.filter((i) => !i.read).length
 
-  useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
-
   return (
-    <div className="inbox" ref={ref}>
-      <button
-        className="bell"
-        aria-label={`Notifications, ${unread} unread`}
-        onClick={() => {
-          setOpen((o) => !o)
-          if (!open) onOpenPanel()
-        }}
-      >
-        <Icon name="bell" size={22} />
-        {unread > 0 && <span className="badge">{unread}</span>}
-      </button>
-      {open && (
-        <div className="inbox-panel">
-          <h3>Notifications</h3>
-          {items.length === 0 && <p className="muted">Nothing yet.</p>}
-          <ul>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) onOpenPanel()
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative" aria-label={`Notifications, ${unread} unread`}>
+          <Icon name="bell" size={22} />
+          {unread > 0 && (
+            <Badge className="absolute -top-1 -right-1.5 h-5 min-w-5 bg-critical px-1 text-white tabular-nums">
+              {unread}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[min(360px,calc(100vw-32px))] gap-0 p-0">
+        <h3 className="px-3 py-2.5 font-semibold">Notifications</h3>
+        <Separator />
+        <div className="max-h-[70vh] overflow-y-auto p-2">
+          {items.length === 0 && <p className="p-2 text-sm text-muted-foreground">Nothing yet.</p>}
+          <ul className="grid gap-1.5">
             {items.map((item) => (
-              <li key={item.event_id} className={`inbox-item p-${item.priority} ${item.read ? '' : 'unread'}`}>
+              <li key={item.event_id}>
                 <button
+                  className={cn(
+                    'flex w-full items-start gap-2.5 rounded-r-md border-l-[3px] px-2.5 py-2 text-left transition-colors hover:bg-muted',
+                    PRIORITY_BORDER_L[item.priority],
+                    !item.read && 'bg-muted',
+                  )}
                   onClick={() => {
                     setOpen(false)
                     onOpenItem(item)
                   }}
                 >
-                  <span className="note-icon">
-                    <NotificationIcon name={item.icon} size={18} />
-                  </span>
-                  <span className="note-text">
-                    <strong>{item.title}</strong>
+                  <NoteIcon name={item.icon} priority={item.priority} size="sm" />
+                  <span className="grid min-w-0 gap-0.5 text-sm">
+                    <strong className="font-semibold">{item.title}</strong>
                     <span>{item.body}</span>
-                    <time>{timeOf(item.created_at)}</time>
+                    <time className="text-xs text-muted-foreground">{timeOf(item.created_at)}</time>
                   </span>
                 </button>
               </li>
             ))}
           </ul>
         </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }

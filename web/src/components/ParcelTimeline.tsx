@@ -1,7 +1,9 @@
-import { recordAction } from '../lib/context'
-import { timeOf } from '../lib/format'
-import { Icon } from '../lib/icons'
-import type { Parcel } from '../lib/types'
+import { Button } from '@/components/ui/button'
+import { recordAction } from '@/lib/context'
+import { timeOf } from '@/lib/format'
+import { Icon } from '@/lib/icons'
+import type { Parcel } from '@/lib/types'
+import { cn } from '@/lib/utils'
 import { StatusBadge } from './ParcelList'
 
 interface Props {
@@ -11,14 +13,20 @@ interface Props {
   onPay: () => void
 }
 
+function BackLink({ onBack }: { onBack: () => void }) {
+  return (
+    <Button variant="link" className="px-0 font-semibold" onClick={onBack}>
+      <Icon name="back" size={16} /> Orders
+    </Button>
+  )
+}
+
 export function ParcelTimeline({ parcel, flashId, onBack, onPay }: Props) {
   if (!parcel) {
     return (
       <section>
-        <button className="link" onClick={onBack}>
-          <Icon name="back" size={16} /> Orders
-        </button>
-        <p className="muted">Parcel not found for this customer.</p>
+        <BackLink onBack={onBack} />
+        <p className="text-muted-foreground">Parcel not found for this customer.</p>
       </section>
     )
   }
@@ -26,63 +34,66 @@ export function ParcelTimeline({ parcel, flashId, onBack, onPay }: Props) {
   const entries = [...parcel.timeline].reverse()
   return (
     <section>
-      <button className="link" onClick={onBack}>
-        <Icon name="back" size={16} /> Orders
-      </button>
-      <div className="detail-head">
+      <BackLink onBack={onBack} />
+      <div className="mt-2 flex items-start justify-between gap-4">
         <div>
-          <h2>{parcel.item}</h2>
-          <p className="muted">
+          <h2 className="mb-1 text-xl font-semibold">{parcel.item}</h2>
+          <p className="text-muted-foreground">
             {parcel.store} · {parcel.parcel_id}
           </p>
         </div>
         <StatusBadge status={parcel.status} />
       </div>
 
-      <div className="detail-facts">
+      <div className="my-3 flex gap-8">
         {parcel.eta_minutes != null && parcel.status !== 'delivered' && (
-          <div>
-            <span className="muted">ETA</span>
+          <div className="grid">
+            <span className="text-sm text-muted-foreground">ETA</span>
             <strong>~{parcel.eta_minutes} min</strong>
           </div>
         )}
         {parcel.rider_first_name && (
-          <div>
-            <span className="muted">Rider</span>
+          <div className="grid">
+            <span className="text-sm text-muted-foreground">Rider</span>
             <strong>{parcel.rider_first_name}</strong>
           </div>
         )}
       </div>
 
-      <div className="actions">
+      <div className="mt-3 mb-5 flex flex-wrap gap-2">
         {parcel.status === 'out_for_delivery' && (
-          <button onClick={() => recordAction('tapped:track_rider')}>Track rider</button>
+          <Button variant="outline" size="lg" onClick={() => recordAction('tapped:track_rider')}>
+            Track rider
+          </Button>
         )}
         {parcel.status === 'payment_due' && (
-          <button className="primary" onClick={onPay}>
+          <Button size="lg" onClick={onPay}>
             Pay KES {parcel.fee_kes}
-          </button>
+          </Button>
         )}
         {parcel.status === 'needs_address' && (
-          <button className="primary" onClick={() => recordAction('tapped:confirm_address')}>
+          <Button size="lg" onClick={() => recordAction('tapped:confirm_address')}>
             Confirm address
-          </button>
+          </Button>
         )}
         {parcel.status === 'failed' && (
-          <button className="primary" onClick={() => recordAction('tapped:reschedule')}>
+          <Button size="lg" onClick={() => recordAction('tapped:reschedule')}>
             Reschedule
-          </button>
+          </Button>
         )}
       </div>
 
-      <h3>Timeline</h3>
-      <ol className="timeline">
-        {entries.map((e) => (
-          <li key={e.event_id} className={e.event_id === flashId ? 'flash' : ''}>
-            <span className="dot" />
-            <div>
-              <strong>{e.label}</strong>
-              <time className="muted">{timeOf(e.at)}</time>
+      <h3 className="mb-2 font-semibold">Timeline</h3>
+      <ol>
+        {entries.map((e, i) => (
+          <li
+            key={e.event_id}
+            className={cn('flex gap-3 rounded-lg px-2 py-2.5', e.event_id === flashId && 'animate-flash')}
+          >
+            <span className={cn('mt-1.5 size-2.5 flex-none rounded-full', i === 0 ? 'bg-primary' : 'bg-border')} />
+            <div className="grid">
+              <strong className="font-semibold">{e.label}</strong>
+              <time className="text-sm text-muted-foreground">{timeOf(e.at)}</time>
             </div>
           </li>
         ))}

@@ -58,14 +58,18 @@ class FcmSender:
                 "parcel_id": parcel_id or "",
                 "deep_link": link,
                 "priority": event.priority,
-                "icon": message.icon,  # foreground toasts render it; OS notifications use /icon.svg
+                "icon": message.icon,  # foreground toasts render it; OS notifications use /icon-192.png
             },
             webpush=messaging.WebpushConfig(
-                headers={"Urgency": "high" if critical else "normal", "TTL": "3600"},
+                # Always high on the wire: info events never push, and FCM holds "normal" web pushes
+                # while an Android phone is dozing (screen off), so they only show on unlock.
+                # The decision's urgency still drives require_interaction below.
+                headers={"Urgency": "high", "TTL": "3600"},
                 notification=messaging.WebpushNotification(
                     title=message.title,
                     body=message.body,
-                    icon="/icon.svg",
+                    # PNG: Android cannot render SVG notification icons.
+                    icon="/icon-192.png",
                     # A newer update for the same parcel replaces the older notification.
                     tag=parcel_id or event.event_id,
                     renotify=True,
@@ -101,9 +105,9 @@ class FcmSender:
                 errors.append(f"{type(exc).__name__}: {exc}")
 
         status = "sent" if sent else "error"
-        detail = f"{sent}/{len(tokens)} device(s)"
+        detail = f"{sent}/{len(tokens)} device(s), Urgency: high"
         if decision.urgency == "high":
-            detail += ", Urgency: high"
+            detail += ", sticky"
         if errors:
             detail += "; " + "; ".join(errors)
         return ChannelResult(channel="fcm", status=status, detail=detail)

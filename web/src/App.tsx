@@ -32,8 +32,8 @@ export default function App() {
     setUserId(id)
   }
 
-  if (error) return <p className="boot error">Could not reach the Shippy API: {error}</p>
-  if (!config) return <p className="boot muted">Loading…</p>
+  if (error) return <p className="p-8 text-destructive">Could not reach the Shippy API: {error}</p>
+  if (!config) return <p className="p-8 text-muted-foreground">Loading…</p>
 
   const validUser = config.personas.some((p) => p.user_id === userId) ? userId : config.personas[0].user_id
 

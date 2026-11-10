@@ -1,0 +1,118 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+/* Dark mode follows the OS setting (no theme toggle in this app). */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* Notification priorities and states: text-info, border-l-action, bg-critical/15, ... */
+  --color-info: var(--info);
+  --color-action: var(--action);
+  --color-critical: var(--critical);
+  --color-good: var(--good);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Timeline row that was updated in place (inline delivery). */
+  --animate-flash: flash 2.4s ease-out;
+  @keyframes flash {
+    0%, 35% { background: color-mix(in oklab, var(--primary) 25%, transparent); }
+    100% { background: transparent; }
+  }
+}
+
+:root {
+  --background: #f6f7f5;
+  --foreground: #17201d;
+  --card: #ffffff;
+  --card-foreground: #17201d;
+  --popover: #ffffff;
+  --popover-foreground: #17201d;
+  --primary: #0f766e;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1ee;
+  --secondary-foreground: #17201d;
+  --muted: #eef1ee;
+  --muted-foreground: #5d6b66;
+  --accent: #eef1ee;
+  --accent-foreground: #17201d;
+  --destructive: #b91c1c;
+  --border: #d9dfdb;
+  --input: #d9dfdb;
+  --ring: #0f766e;
+  --radius: 0.75rem;
+  --info: #2563eb;
+  --action: #b45309;
+  --critical: #b91c1c;
+  --good: #15803d;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f1513;
+    --foreground: #e8eeeb;
+    --card: #18201d;
+    --card-foreground: #e8eeeb;
+    --popover: #18201d;
+    --popover-foreground: #e8eeeb;
+    --primary: #2dd4bf;
+    --primary-foreground: #062b27;
+    --secondary: #212b27;
+    --secondary-foreground: #e8eeeb;
+    --muted: #212b27;
+    --muted-foreground: #9aaba4;
+    --accent: #212b27;
+    --accent-foreground: #e8eeeb;
+    --destructive: #f87171;
+    --border: #2e3a35;
+    --input: #2e3a35;
+    --ring: #2dd4bf;
+    --info: #60a5fa;
+    --action: #f59e0b;
+    --critical: #f87171;
+    --good: #4ade80;
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+}

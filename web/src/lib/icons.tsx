@@ -3,6 +3,7 @@ import {
   Alert02Icon,
   ArrowLeft02Icon,
   ArrowRight02Icon,
+  ArrowUpRight01Icon,
   Cancel01Icon,
   CheckmarkCircle02Icon,
   Clock01Icon,
@@ -39,6 +40,7 @@ const UI_ICONS = {
   close: Cancel01Icon,
   back: ArrowLeft02Icon,
   next: ArrowRight02Icon,
+  external: ArrowUpRight01Icon,
 } as const
 
 export function Icon({ name, size = 20, className }: { name: keyof typeof UI_ICONS; size?: number; className?: string }) {
