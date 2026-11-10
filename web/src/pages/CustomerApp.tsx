@@ -1,19 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConnDot } from '@/components/ConnDot'
 import { Inbox } from '@/components/Inbox'
 import { cardButton, ParcelList, StatusBadge } from '@/components/ParcelList'
 import { ParcelTimeline } from '@/components/ParcelTimeline'
 import { clearToasts, showToast, type Toast } from '@/components/Toasts'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Toaster } from '@/components/ui/sonner'
 import { api } from '@/lib/api'
 import { recordAction, usePresence } from '@/lib/context'
 import { currentAlertsState, enableAlerts, listenForeground, listenWorkerNavigation, type AlertsState } from '@/lib/fcm'
+import { openParcel, parcelCta } from '@/lib/parcelActions'
 import { navigate, routeView, type Route } from '@/lib/route'
 import { useStream } from '@/lib/sse'
 import { tabClientId } from '@/lib/storage'
 import type { AppConfig, Delivery, InboxItem, Parcel } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 interface Props {
   route: Route
@@ -23,11 +25,6 @@ interface Props {
 }
 
 const clientId = tabClientId()
-
-function openParcel(id: string) {
-  recordAction(`opened_parcel:${id}`)
-  navigate(`/parcels/${id}`)
-}
 
 function openFromToast(t: Toast) {
   if (t.parcelId) openParcel(t.parcelId)
@@ -47,6 +44,9 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
   const [inbox, setInbox] = useState<InboxItem[]>([])
   const [flashId, setFlashId] = useState<string | null>(null)
   const [alerts, setAlerts] = useState<AlertsState>('default')
+  // Latest parcels for the FCM foreground listener, which is registered once.
+  const parcelsRef = useRef(parcels)
+  parcelsRef.current = parcels
 
   const parcelId = route.name === 'parcel' ? route.parcelId : null
   usePresence(userId, clientId, routeView(route), parcelId, persona.locale)
@@ -83,6 +83,7 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
             priority: p.priority as Toast['priority'],
             sticky: p.priority === 'critical',
             parcelId: p.parcelId,
+            cta: parcelCta(parcelsRef.current.find((x) => x.parcel_id === p.parcelId)),
             via: 'fcm',
           },
           openFromToast,
@@ -103,6 +104,7 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
       setFlashId(d.events[d.events.length - 1].event_id)
     }
     if (fresh && d.decision.action === 'toast' && d.message) {
+      const toastParcelId = (d.events.length === 1 ? (d.events[0].payload.parcel_id as string) : null) ?? null
       showToast(
         {
           id: d.id,
@@ -111,7 +113,9 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
           icon: d.message.icon,
           priority: d.priority,
           sticky: d.decision.sticky,
-          parcelId: (d.events.length === 1 ? (d.events[0].payload.parcel_id as string) : null) ?? null,
+          parcelId: toastParcelId,
+          // The delivery carries the parcel as it is after this event.
+          cta: parcelCta(d.parcels.find((x) => x.parcel_id === toastParcelId)),
           via: 'sse',
         },
         openFromToast,
@@ -132,90 +136,181 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
   const onTheWay = parcels.filter((p) => p.status !== 'delivered')
   const due = parcels.filter((p) => p.status === 'payment_due')
 
+  const container = 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10'
+  const split = route.name === 'orders' || route.name === 'parcel'
+
   return (
-    <div className="mx-auto min-h-screen max-w-[560px] bg-card shadow-xl">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b bg-card px-4 py-2.5">
-        <button className="flex items-center gap-2 text-lg font-extrabold" onClick={() => navigate('/')}>
-          <img src="/icon.svg" alt="" width={28} height={28} /> Shippy
-        </button>
-        <nav className="ml-auto flex gap-1">
-          <Button variant={route.name === 'orders' ? 'secondary' : 'ghost'} onClick={() => navigate('/orders')}>
-            Orders
-          </Button>
-          <Button variant={route.name === 'payment' ? 'secondary' : 'ghost'} onClick={() => navigate('/payment')}>
-            Payments
-          </Button>
-        </nav>
-        <ConnDot status={status} label="Live updates" />
-        <Inbox items={inbox} onOpenPanel={markRead} onOpenItem={(i) => i.parcel_id && openParcel(i.parcel_id)} />
+    <div className="flex min-h-dvh flex-col bg-background">
+      <header className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur">
+        <div className={cn(container, 'flex h-14 items-center gap-2 sm:gap-4')}>
+          <button className="flex items-center gap-2 text-lg font-extrabold" onClick={() => navigate('/')}>
+            <img src="/icon.svg" alt="" width={28} height={28} /> <span className="hidden sm:inline">Shippy</span>
+          </button>
+          <nav className="ml-2 flex gap-1 sm:ml-6">
+            <Button variant={route.name === 'home' ? 'secondary' : 'ghost'} onClick={() => navigate('/')} className="hidden sm:inline-flex">
+              Home
+            </Button>
+            <Button variant={split ? 'secondary' : 'ghost'} onClick={() => navigate('/orders')}>
+              Orders
+            </Button>
+            <Button variant={route.name === 'payment' ? 'secondary' : 'ghost'} onClick={() => navigate('/payment')}>
+              Payments
+            </Button>
+          </nav>
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <ConnDot status={status} label="Live updates" />
+            <Inbox
+              items={inbox}
+              parcels={parcels}
+              onMarkAllRead={markRead}
+              onOpenItem={(i) => i.parcel_id && openParcel(i.parcel_id)}
+            />
+            <Select value={userId} onValueChange={onUserChange}>
+              <SelectTrigger className="gap-2 border-0 bg-transparent px-1.5 shadow-none" aria-label="Customer">
+                <span className="grid size-8 place-items-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                  {persona.name.charAt(0)}
+                </span>
+                <span className="hidden font-medium md:inline">{persona.name}</span>
+              </SelectTrigger>
+              <SelectContent position="popper" align="end">
+                {config.personas.map((p) => (
+                  <SelectItem key={p.user_id} value={p.user_id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </header>
 
-      <div className="flex items-center gap-3 border-b bg-muted px-4 py-2">
-        <Select value={userId} onValueChange={onUserChange}>
-          <SelectTrigger size="sm" className="bg-card" aria-label="Customer">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {config.personas.map((p) => (
-              <SelectItem key={p.user_id} value={p.user_id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {ALERTS_NOTE[alerts] ? (
-          <span className="text-sm text-muted-foreground">{ALERTS_NOTE[alerts]}</span>
-        ) : (
-          <Button size="sm" onClick={() => void enableAlerts(userId, true).then(setAlerts)}>
-            Enable alerts
-          </Button>
-        )}
-      </div>
+      {alerts !== 'granted' && (
+        <div className="border-b bg-muted">
+          <div className={cn(container, 'flex flex-wrap items-center gap-3 py-2 text-sm')}>
+            {ALERTS_NOTE[alerts] ? (
+              <span className="text-muted-foreground">{ALERTS_NOTE[alerts]}</span>
+            ) : (
+              <>
+                <span className="text-muted-foreground">Get delivery updates even when this tab is closed.</span>
+                <Button size="sm" onClick={() => void enableAlerts(userId, true).then(setAlerts)}>
+                  Enable alerts
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
-      <main className="px-4 pt-5 pb-24">
+      <main className={cn(container, 'flex-1 pt-6 pb-24 lg:pt-8')}>
         {route.name === 'home' && (
           <section>
-            <h2 className="mb-1 text-xl font-semibold">Habari, {persona.name}</h2>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Habari, {persona.name}</h1>
+            <p className="mt-1 text-muted-foreground">
               {onTheWay.length} parcel{onTheWay.length === 1 ? '' : 's'} on the way from{' '}
-              {new Set(onTheWay.map((p) => p.store)).size} stores.
+              {new Set(onTheWay.map((p) => p.store)).size} stores, delivered together by Shippy.
             </p>
-            <div className="mt-3 grid gap-2">
-              {needsAttention.map((p) => (
-                <button key={p.parcel_id} className={cardButton} onClick={() => openParcel(p.parcel_id)}>
-                  <strong className="font-semibold">{p.item}</strong> <StatusBadge status={p.status} />
+
+            <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
+              {[
+                { label: 'On the way', value: onTheWay.length, tone: 'text-foreground', to: '/orders' },
+                { label: 'Need attention', value: needsAttention.length, tone: 'text-action', to: '/orders' },
+                { label: 'Fees due', value: due.length, tone: 'text-critical', to: '/payment' },
+              ].map((s) => (
+                <button key={s.label} className={cn(cardButton, 'grid justify-items-start gap-0.5 p-4')} onClick={() => navigate(s.to)}>
+                  <span className={cn('text-2xl font-bold sm:text-3xl', s.tone)}>{s.value}</span>
+                  <span className="text-xs text-muted-foreground sm:text-sm">{s.label}</span>
                 </button>
               ))}
             </div>
-            <Button size="lg" className="mt-4" onClick={() => navigate('/orders')}>
-              View orders
-            </Button>
+
+            {needsAttention.length > 0 && (
+              <>
+                <h2 className="mt-8 mb-3 text-lg font-semibold">Needs your attention</h2>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {needsAttention.map((p) => (
+                    <button key={p.parcel_id} className={cardButton} onClick={() => openParcel(p.parcel_id)}>
+                      <span className="grid min-w-0">
+                        <strong className="truncate font-semibold">{p.item}</strong>
+                        <span className="truncate text-muted-foreground">{p.store}</span>
+                      </span>
+                      <StatusBadge status={p.status} />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="mt-8 mb-3 flex items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold">Your parcels</h2>
+              <Button variant="link" className="px-0" onClick={() => navigate('/orders')}>
+                View all orders
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {parcels.map((p) => (
+                <button key={p.parcel_id} className={cn(cardButton, 'items-start')} onClick={() => openParcel(p.parcel_id)}>
+                  <span className="grid min-w-0">
+                    <strong className="truncate font-semibold">{p.item}</strong>
+                    <span className="truncate text-muted-foreground">
+                      {p.store} · {p.parcel_id}
+                    </span>
+                    {p.eta_minutes != null && p.status !== 'delivered' && (
+                      <span className="mt-1 text-sm font-semibold">~{p.eta_minutes} min</span>
+                    )}
+                  </span>
+                  <StatusBadge status={p.status} />
+                </button>
+              ))}
+            </div>
           </section>
         )}
-        {route.name === 'orders' && <ParcelList parcels={parcels} onOpen={openParcel} />}
-        {route.name === 'parcel' && (
-          <ParcelTimeline parcel={parcel} flashId={flashId} onBack={() => navigate('/orders')} onPay={() => navigate('/payment')} />
-        )}
-        {route.name === 'payment' && (
-          <section>
-            <h2 className="mb-1 text-xl font-semibold">Payments</h2>
-            {due.length === 0 && <p className="text-muted-foreground">No delivery fees due.</p>}
-            {due.map((p) => (
-              <div key={p.parcel_id} className="flex items-center justify-between gap-4 border-b py-3.5">
-                <div className="grid">
-                  <strong className="font-semibold">{p.item}</strong>
-                  <span className="text-sm text-muted-foreground">{p.store}</span>
+
+        {split && (
+          // Desktop: list and detail side by side. Phone: one at a time (the route decides which).
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
+            <div className={cn(route.name === 'parcel' && 'hidden lg:block', 'lg:sticky lg:top-20')}>
+              <ParcelList parcels={parcels} onOpen={openParcel} selectedId={parcelId} />
+            </div>
+            <div className={cn(route.name === 'orders' && 'hidden lg:block')}>
+              {route.name === 'parcel' ? (
+                <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
+                  <ParcelTimeline parcel={parcel} flashId={flashId} onBack={() => navigate('/orders')} />
                 </div>
-                <Button size="lg" onClick={() => recordAction('tapped:pay_fee')}>
-                  Pay KES {p.fee_kes}
-                </Button>
-              </div>
-            ))}
+              ) : (
+                <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
+                  Select a parcel to see its timeline.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {route.name === 'payment' && (
+          <section className="max-w-2xl">
+            <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
+            {due.length === 0 && <p className="mt-1 text-muted-foreground">No delivery fees due.</p>}
+            <div className="mt-4 grid gap-3">
+              {due.map((p) => (
+                <div
+                  key={p.parcel_id}
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-card px-4 py-3.5 ring-1 ring-foreground/10"
+                >
+                  <div className="grid">
+                    <strong className="font-semibold">{p.item}</strong>
+                    <span className="text-sm text-muted-foreground">
+                      {p.store} · {p.parcel_id}
+                    </span>
+                  </div>
+                  <Button size="lg" onClick={() => recordAction('tapped:pay_fee')}>
+                    Pay KES {p.fee_kes}
+                  </Button>
+                </div>
+              ))}
+            </div>
           </section>
         )}
       </main>
 
-      <Toaster position="bottom-center" visibleToasts={4} />
+      <Toaster position="bottom-right" visibleToasts={4} />
     </div>
   )
 }

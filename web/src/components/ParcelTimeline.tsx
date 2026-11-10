@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
-import { recordAction } from '@/lib/context'
 import { timeOf } from '@/lib/format'
 import { Icon } from '@/lib/icons'
+import { parcelCta } from '@/lib/parcelActions'
 import type { Parcel } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { StatusBadge } from './ParcelList'
@@ -10,18 +10,18 @@ interface Props {
   parcel: Parcel | undefined
   flashId: string | null
   onBack: () => void
-  onPay: () => void
 }
 
 function BackLink({ onBack }: { onBack: () => void }) {
   return (
-    <Button variant="link" className="px-0 font-semibold" onClick={onBack}>
+    // Desktop shows the list beside the detail, so the back link is phone-only.
+    <Button variant="link" className="px-0 font-semibold lg:hidden" onClick={onBack}>
       <Icon name="back" size={16} /> Orders
     </Button>
   )
 }
 
-export function ParcelTimeline({ parcel, flashId, onBack, onPay }: Props) {
+export function ParcelTimeline({ parcel, flashId, onBack }: Props) {
   if (!parcel) {
     return (
       <section>
@@ -32,6 +32,7 @@ export function ParcelTimeline({ parcel, flashId, onBack, onPay }: Props) {
   }
 
   const entries = [...parcel.timeline].reverse()
+  const cta = parcelCta(parcel)
   return (
     <section>
       <BackLink onBack={onBack} />
@@ -60,28 +61,13 @@ export function ParcelTimeline({ parcel, flashId, onBack, onPay }: Props) {
         )}
       </div>
 
-      <div className="mt-3 mb-5 flex flex-wrap gap-2">
-        {parcel.status === 'out_for_delivery' && (
-          <Button variant="outline" size="lg" onClick={() => recordAction('tapped:track_rider')}>
-            Track rider
+      {cta && (
+        <div className="mt-3 mb-5 flex flex-wrap gap-2">
+          <Button variant={parcel.status === 'out_for_delivery' ? 'outline' : 'default'} size="lg" onClick={cta.run}>
+            {cta.label}
           </Button>
-        )}
-        {parcel.status === 'payment_due' && (
-          <Button size="lg" onClick={onPay}>
-            Pay KES {parcel.fee_kes}
-          </Button>
-        )}
-        {parcel.status === 'needs_address' && (
-          <Button size="lg" onClick={() => recordAction('tapped:confirm_address')}>
-            Confirm address
-          </Button>
-        )}
-        {parcel.status === 'failed' && (
-          <Button size="lg" onClick={() => recordAction('tapped:reschedule')}>
-            Reschedule
-          </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <h3 className="mb-2 font-semibold">Timeline</h3>
       <ol>

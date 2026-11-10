@@ -25,19 +25,25 @@ export const cardButton =
 interface Props {
   parcels: Parcel[]
   onOpen: (parcelId: string) => void
+  /** Highlighted when the detail is shown beside the list (desktop). */
+  selectedId?: string | null
 }
 
-export function ParcelList({ parcels, onOpen }: Props) {
+export function ParcelList({ parcels, onOpen, selectedId }: Props) {
   return (
     <section>
-      <h2 className="mb-1 text-xl font-semibold">Your orders</h2>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight">Your orders</h1>
       <p className="text-muted-foreground">
         From {new Set(parcels.map((p) => p.store)).size} stores, delivered together by Shippy.
       </p>
       <ul className="mt-4 grid gap-2.5">
         {parcels.map((p) => (
           <li key={p.parcel_id}>
-            <button className={cardButton} onClick={() => onOpen(p.parcel_id)}>
+            <button
+              className={cn(cardButton, p.parcel_id === selectedId && 'bg-primary/5 ring-2 ring-primary')}
+              aria-current={p.parcel_id === selectedId ? 'true' : undefined}
+              onClick={() => onOpen(p.parcel_id)}
+            >
               <div className="grid min-w-0">
                 <strong className="font-semibold">{p.item}</strong>
                 <span className="text-muted-foreground">

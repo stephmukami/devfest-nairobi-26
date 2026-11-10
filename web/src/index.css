@@ -48,23 +48,24 @@
 }
 
 :root {
-  --background: #f6f7f5;
-  --foreground: #17201d;
+  /* Neutral white / light grey surfaces (Tailwind gray), no warm or green tint. */
+  --background: #f9fafb;
+  --foreground: #111827;
   --card: #ffffff;
-  --card-foreground: #17201d;
+  --card-foreground: #111827;
   --popover: #ffffff;
-  --popover-foreground: #17201d;
+  --popover-foreground: #111827;
   --primary: #0f766e;
   --primary-foreground: #ffffff;
-  --secondary: #eef1ee;
-  --secondary-foreground: #17201d;
-  --muted: #eef1ee;
-  --muted-foreground: #5d6b66;
-  --accent: #eef1ee;
-  --accent-foreground: #17201d;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #111827;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #f3f4f6;
+  --accent-foreground: #111827;
   --destructive: #b91c1c;
-  --border: #d9dfdb;
-  --input: #d9dfdb;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
   --ring: #0f766e;
   --radius: 0.75rem;
   --info: #2563eb;
@@ -76,23 +77,24 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0f1513;
-    --foreground: #e8eeeb;
-    --card: #18201d;
-    --card-foreground: #e8eeeb;
-    --popover: #18201d;
-    --popover-foreground: #e8eeeb;
+    /* Neutral greys to match the light theme. */
+    --background: #0b0b0c;
+    --foreground: #f4f4f5;
+    --card: #18181b;
+    --card-foreground: #f4f4f5;
+    --popover: #18181b;
+    --popover-foreground: #f4f4f5;
     --primary: #2dd4bf;
     --primary-foreground: #062b27;
-    --secondary: #212b27;
-    --secondary-foreground: #e8eeeb;
-    --muted: #212b27;
-    --muted-foreground: #9aaba4;
-    --accent: #212b27;
-    --accent-foreground: #e8eeeb;
+    --secondary: #27272a;
+    --secondary-foreground: #f4f4f5;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --accent: #27272a;
+    --accent-foreground: #f4f4f5;
     --destructive: #f87171;
-    --border: #2e3a35;
-    --input: #2e3a35;
+    --border: #3f3f46;
+    --input: #3f3f46;
     --ring: #2dd4bf;
     --info: #60a5fa;
     --action: #f59e0b;

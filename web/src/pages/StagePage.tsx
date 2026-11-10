@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChannelInspector } from '@/components/ChannelInspector'
-import { ConnDot } from '@/components/ConnDot'
 import { DemoController } from '@/components/DemoController'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
@@ -40,20 +39,9 @@ export function StagePage({ config, userId, onUserChange }: Props) {
   const status = useStream({ userId, clientId, observer: true, onDelivery, onPresence: setPresence })
 
   return (
-    <div className="min-h-screen px-5 py-4 text-[1.05rem]">
-      <header className="mb-4 flex flex-wrap items-center gap-4">
-        <h1 className="flex items-center gap-2.5 text-2xl font-bold">
-          <img src="/icon.svg" alt="" width={32} height={32} /> Signals over noise
-        </h1>
-        <span className="text-muted-foreground">Events carry facts. Rules decide who hears. AI decides the words.</span>
-        <ConnDot status={status} label="Inspector stream" />
-        <Button variant="link" asChild className="ml-auto font-semibold">
-          <a href="/" target="_blank" rel="noreferrer">
-            Open customer app <Icon name="external" size={16} />
-          </a>
-        </Button>
-      </header>
-      <div className="grid items-start gap-5 min-[800px]:grid-cols-[300px_1fr]">
+    // Desktop: full-height sidebar + scrolling main. Below 1024px the sidebar stacks on top.
+    <div className="min-h-dvh lg:grid lg:h-dvh lg:grid-cols-[300px_minmax(0,1fr)]">
+      <aside className="border-b bg-card lg:overflow-y-auto lg:border-r lg:border-b-0">
         <DemoController
           config={config}
           userId={userId}
@@ -62,8 +50,23 @@ export function StagePage({ config, userId, onUserChange }: Props) {
           presence={presence}
           onAfterReset={load}
         />
-        <ChannelInspector deliveries={deliveries} />
-      </div>
+      </aside>
+      <main className="min-w-0 px-4 py-6 sm:px-8 lg:overflow-y-auto">
+        <header className="mx-auto mb-6 flex max-w-5xl flex-wrap items-end gap-x-6 gap-y-2">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Signals over noise</h1>
+            <p className="text-muted-foreground">Events carry facts. Rules decide who hears. AI decides the words.</p>
+          </div>
+          <Button variant="outline" asChild className="ml-auto">
+            <a href="/" target="_blank" rel="noreferrer">
+              Open customer app <Icon name="external" size={16} />
+            </a>
+          </Button>
+        </header>
+        <div className="mx-auto max-w-5xl">
+          <ChannelInspector deliveries={deliveries} status={status} />
+        </div>
+      </main>
     </div>
   )
 }
