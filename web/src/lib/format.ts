@@ -79,6 +79,16 @@ export function dayLabel(iso: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()
 }
 
+const LOWERCASE_WORDS = new Set(['at', 'by', 'for', 'of', 'to'])
+
+/** "parcel.received_at_hub" -> "Parcel Received at Hub". */
+export function eventLabel(type: string): string {
+  return type
+    .split(/[._]/)
+    .map((w, i) => (i > 0 && LOWERCASE_WORDS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ')
+}
+
 export function shortType(type: string): string {
   return type.split('.').pop()!.replace(/_/g, ' ')
 }

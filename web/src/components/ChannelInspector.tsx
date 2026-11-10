@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { shortType, timeOf } from '@/lib/format'
 import { Icon } from '@/lib/icons'
-import { PRIORITY_BORDER_B } from '@/lib/priority'
+import { PRIORITY_TEXT } from '@/lib/priority'
 import type { StreamStatus } from '@/lib/sse'
-import type { Delivery } from '@/lib/types'
+import type { Delivery, Priority } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { NoteIcon } from './NoteIcon'
 
@@ -132,6 +131,38 @@ function Header({ status, deliveryId }: { status: StreamStatus; deliveryId?: str
   )
 }
 
+interface RecentGroup {
+  key: string
+  label: string
+  priority: Priority
+  latest: Delivery
+  count: number
+  ids: Set<string>
+}
+
+/** One card per event type (digests together), newest first, with how many times it fired. */
+function groupRecent(deliveries: Delivery[]): RecentGroup[] {
+  const groups = new Map<string, RecentGroup>()
+  for (const x of deliveries) {
+    const key = x.kind === 'digest' ? 'digest' : x.events[0].type
+    const g = groups.get(key)
+    if (g) {
+      g.count += 1
+      g.ids.add(x.id)
+    } else {
+      groups.set(key, {
+        key,
+        label: key === 'digest' ? 'digest' : shortType(key),
+        priority: x.priority,
+        latest: x,
+        count: 1,
+        ids: new Set([x.id]),
+      })
+    }
+  }
+  return [...groups.values()]
+}
+
 export function ChannelInspector({ deliveries, status }: { deliveries: Delivery[]; status: StreamStatus }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const latest = deliveries[0]
@@ -158,23 +189,29 @@ export function ChannelInspector({ deliveries, status }: { deliveries: Delivery[
       <Header status={status} deliveryId={d.id} />
 
       {deliveries.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5 border-b px-6 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b px-6 py-3">
           <span className="mr-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Recent</span>
-          {deliveries.slice(0, 8).map((x) => (
-            <Button
-              key={x.id}
-              variant="outline"
-              size="sm"
+          {groupRecent(deliveries).slice(0, 8).map((g) => (
+            <button
+              key={g.key}
               className={cn(
-                'h-auto flex-col items-start gap-0 border-b-[3px] px-2.5 py-1',
-                PRIORITY_BORDER_B[x.priority],
-                x.id === d.id && 'ring-2 ring-primary',
+                'flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-left text-sm shadow-sm transition-shadow hover:shadow-md',
+                g.ids.has(d.id) && 'ring-2 ring-primary',
               )}
-              onClick={() => setSelectedId(x.id)}
+              onClick={() => setSelectedId(g.latest.id)}
             >
-              {x.kind === 'digest' ? `digest ×${x.events.length}` : shortType(x.events[0].type)}
-              <small className="text-[0.7rem] font-normal text-muted-foreground">{timeOf(x.created_at)}</small>
-            </Button>
+              <Icon name={g.priority} size={16} className={PRIORITY_TEXT[g.priority]} />
+              <span className="sr-only">{g.priority} priority:</span>
+              <span className="grid leading-tight">
+                <span className="font-medium">{g.label}</span>
+                <small className="text-[0.7rem] text-muted-foreground">{timeOf(g.latest.created_at)}</small>
+              </span>
+              {g.count > 1 && (
+                <Badge variant="secondary" className="rounded-full px-1.5 tabular-nums" aria-label={`fired ${g.count} times`}>
+                  ×{g.count}
+                </Badge>
+              )}
+            </button>
           ))}
         </div>
       )}

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { api, getDemoKey, setDemoKey } from '@/lib/api'
-import { STATUS_LABEL } from '@/lib/format'
+import { eventLabel, STATUS_LABEL } from '@/lib/format'
 import { Icon } from '@/lib/icons'
 import { PRIORITY_TEXT } from '@/lib/priority'
 import type { AppConfig, Parcel, Presence, Priority, Switches } from '@/lib/types'
@@ -195,7 +195,7 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
                 <li key={t.type}>
                   <button
                     className={cn(triggerRow, fired === t.type && [FIRED_BG[priority], PRIORITY_TEXT[priority]])}
-                    title={t.meaning}
+                    title={`${t.type}: ${t.meaning}`}
                     disabled={busy !== null}
                     onClick={() =>
                       run(t.type, async () => {
@@ -205,7 +205,7 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
                     }
                   >
                     <Icon name={priority} size={16} className={PRIORITY_TEXT[priority]} />
-                    {t.type}
+                    {eventLabel(t.type)}
                   </button>
                 </li>
               ))}
