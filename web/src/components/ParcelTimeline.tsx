@@ -5,6 +5,7 @@ import { parcelCta } from '@/lib/parcelActions'
 import type { Parcel } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { StatusBadge } from './ParcelList'
+import { ParcelThumb } from './ParcelThumb'
 
 interface Props {
   parcel: Parcel | undefined
@@ -36,8 +37,9 @@ export function ParcelTimeline({ parcel, flashId, onBack }: Props) {
   return (
     <section>
       <BackLink onBack={onBack} />
-      <div className="mt-2 flex items-start justify-between gap-4">
-        <div>
+      <div className="mt-2 flex items-start gap-4">
+        <ParcelThumb parcel={parcel} size="lg" />
+        <div className="min-w-0 flex-1">
           <h2 className="mb-1 text-xl font-semibold">{parcel.item}</h2>
           <p className="text-muted-foreground">
             {parcel.store} · {parcel.parcel_id}

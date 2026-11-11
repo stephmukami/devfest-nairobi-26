@@ -58,10 +58,10 @@ function ToastCard({ t, id, onOpen }: { t: Toast; id: string | number; onOpen: (
       role={t.priority === 'critical' ? 'alert' : 'status'}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      className={cn('w-[min(400px,calc(100vw-32px))] rounded-2xl border p-1.5', FRAME[t.priority])}
+      className={cn('w-[min(400px,calc(100vw-32px))] rounded-lg border p-1.5', FRAME[t.priority])}
     >
       {/* flex-wrap: on narrow phones the buttons drop below the text instead of squeezing it. */}
-      <div className="flex flex-wrap items-start gap-3 rounded-xl bg-card p-3 text-card-foreground shadow-sm">
+      <div className="flex flex-wrap items-start gap-3 rounded-lg bg-card p-3 text-card-foreground shadow-sm">
         <NoteIcon name={t.icon} priority={t.priority} />
         <button
           className="grid min-w-40 flex-1 gap-0.5 text-left text-sm"

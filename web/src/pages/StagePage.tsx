@@ -52,11 +52,8 @@ export function StagePage({ config, userId, onUserChange }: Props) {
         />
       </aside>
       <main className="min-w-0 px-4 py-6 sm:px-8 lg:overflow-y-auto">
-        <header className="mx-auto mb-6 flex max-w-5xl flex-wrap items-end gap-x-6 gap-y-2">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Signals over noise</h1>
-            <p className="text-muted-foreground">Events carry facts. Rules decide who hears. AI decides the words.</p>
-          </div>
+        <header className="mx-auto mb-6 flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Signals over noise</h1>
           <Button variant="outline" asChild className="ml-auto">
             <a href="/" target="_blank" rel="noreferrer">
               Open customer app <Icon name="external" size={16} />

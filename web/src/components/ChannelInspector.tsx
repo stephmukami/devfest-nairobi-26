@@ -81,7 +81,7 @@ function Step({
       >
         {n}
       </span>
-      <section className="min-w-0 rounded-2xl border bg-muted/50 p-4 sm:p-5">
+      <section className="min-w-0 rounded-lg border bg-muted/50 p-4 sm:p-5">
         <h3 className="mb-3.5 flex items-center gap-2 text-sm font-bold tracking-widest text-muted-foreground uppercase">
           <Icon name={icon} size={18} className={STEP_ICON[tone]} />
           {title}
@@ -94,7 +94,7 @@ function Step({
 
 /** White box inside a step. */
 function Panel({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cn('rounded-xl border bg-card p-3.5', className)}>{children}</div>
+  return <div className={cn('rounded-lg border bg-card p-3.5', className)}>{children}</div>
 }
 
 function Stat({ label, value, tone }: { label: string; value: string; tone: string }) {
@@ -172,7 +172,7 @@ export function ChannelInspector({ deliveries, status }: { deliveries: Delivery[
 
   if (!d) {
     return (
-      <Card className="min-w-0 gap-0 rounded-3xl py-0">
+      <Card className="min-w-0 gap-0 rounded-lg py-0">
         <Header status={status} />
         <p className="px-6 py-10 text-muted-foreground">
           Fire an event to follow it through the pipeline: raw facts, decision, words, channel.
@@ -185,7 +185,7 @@ export function ChannelInspector({ deliveries, status }: { deliveries: Delivery[
   const where = session.connection_count === 0 ? 'No tab' : session.visible ? 'Visible' : 'Hidden'
 
   return (
-    <Card className="min-w-0 gap-0 rounded-3xl py-0">
+    <Card className="min-w-0 gap-0 rounded-lg py-0">
       <Header status={status} deliveryId={d.id} />
 
       {deliveries.length > 1 && (

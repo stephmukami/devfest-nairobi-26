@@ -3,6 +3,7 @@ import { ConnDot } from '@/components/ConnDot'
 import { HomeDashboard } from '@/components/HomeDashboard'
 import { Inbox } from '@/components/Inbox'
 import { ParcelList } from '@/components/ParcelList'
+import { ParcelThumb } from '@/components/ParcelThumb'
 import { ParcelTimeline } from '@/components/ParcelTimeline'
 import { clearToasts, showToast, type Toast } from '@/components/Toasts'
 import { Button } from '@/components/ui/button'
@@ -230,11 +231,11 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
             </div>
             <div className={cn(route.name === 'orders' && 'hidden lg:block')}>
               {route.name === 'parcel' ? (
-                <div className="rounded-2xl bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
+                <div className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-6">
                   <ParcelTimeline parcel={parcel} flashId={flashId} onBack={() => navigate('/orders')} />
                 </div>
               ) : (
-                <div className="grid min-h-64 place-items-center rounded-2xl border border-dashed p-8 text-center text-muted-foreground">
+                <div className="grid min-h-64 place-items-center rounded-lg border border-dashed p-8 text-center text-muted-foreground">
                   Select a parcel to see its timeline.
                 </div>
               )}
@@ -250,13 +251,16 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
               {due.map((p) => (
                 <div
                   key={p.parcel_id}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-card px-4 py-3.5 ring-1 ring-foreground/10"
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10"
                 >
-                  <div className="grid">
-                    <strong className="font-semibold">{p.item}</strong>
-                    <span className="text-sm text-muted-foreground">
-                      {p.store} · {p.parcel_id}
-                    </span>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ParcelThumb parcel={p} />
+                    <div className="grid min-w-0">
+                      <strong className="truncate font-semibold">{p.item}</strong>
+                      <span className="truncate text-sm text-muted-foreground">
+                        {p.store} · {p.parcel_id}
+                      </span>
+                    </div>
                   </div>
                   <Button size="lg" onClick={() => recordAction('tapped:pay_fee')}>
                     Pay KES {p.fee_kes}

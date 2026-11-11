@@ -112,7 +112,7 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
   return (
     <div className="grid gap-6 p-5">
       <div className="flex items-center gap-2.5">
-        <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
+        <span className="grid size-10 place-items-center rounded-lg bg-primary text-primary-foreground">
           <Icon name="truck" size={22} />
         </span>
         <span className="text-xl font-extrabold tracking-tight">SHIPPY</span>
@@ -124,7 +124,7 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
       <section>
         <SectionLabel>Customer context</SectionLabel>
         <Select value={userId} onValueChange={onUserChange}>
-          <SelectTrigger className="w-full rounded-xl bg-muted/50 py-2.5 data-[size=default]:h-auto" aria-label="Customer">
+          <SelectTrigger className="w-full rounded-lg bg-muted/50 py-2.5 data-[size=default]:h-auto" aria-label="Customer">
             <span className="flex min-w-0 items-center gap-2.5">
               <span className="grid size-8 flex-none place-items-center rounded-full bg-action/15 text-sm font-bold text-action">
                 {persona?.name.charAt(0)}
@@ -160,7 +160,7 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
       <section>
         <SectionLabel>Parcel context</SectionLabel>
         <Select value={parcelId} onValueChange={setParcelId} disabled={parcels.length === 0}>
-          <SelectTrigger className="w-full rounded-xl bg-muted/50 py-2.5 data-[size=default]:h-auto" aria-label="Parcel">
+          <SelectTrigger className="w-full rounded-lg bg-muted/50 py-2.5 data-[size=default]:h-auto" aria-label="Parcel">
             <span className="flex min-w-0 items-center gap-2.5">
               <span className="grid size-8 flex-none place-items-center text-primary">
                 <Icon name="package" size={22} />

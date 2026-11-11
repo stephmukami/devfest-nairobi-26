@@ -49,13 +49,13 @@
 
 :root {
   /* Neutral white / light grey surfaces (Tailwind gray), no warm or green tint. */
-  --background: #f9fafb;
+  --background: #f7f8fa; /* soft near-white page; cards stay pure white */
   --foreground: #111827;
   --card: #ffffff;
   --card-foreground: #111827;
   --popover: #ffffff;
   --popover-foreground: #111827;
-  --primary: #0f766e;
+  --primary: #2e5bea;
   --primary-foreground: #ffffff;
   --secondary: #f3f4f6;
   --secondary-foreground: #111827;
@@ -66,9 +66,9 @@
   --destructive: #b91c1c;
   --border: #e5e7eb;
   --input: #e5e7eb;
-  --ring: #0f766e;
+  --ring: #2e5bea;
   --radius: 0.75rem;
-  --info: #2563eb;
+  --info: #0284c7; /* sky, so info stays distinct from the blue primary */
   --action: #b45309;
   --critical: #b91c1c;
   --good: #15803d;
@@ -84,8 +84,8 @@
     --card-foreground: #f4f4f5;
     --popover: #18181b;
     --popover-foreground: #f4f4f5;
-    --primary: #2dd4bf;
-    --primary-foreground: #062b27;
+    --primary: #6b8cff;
+    --primary-foreground: #ffffff;
     --secondary: #27272a;
     --secondary-foreground: #f4f4f5;
     --muted: #27272a;
@@ -95,8 +95,8 @@
     --destructive: #f87171;
     --border: #3f3f46;
     --input: #3f3f46;
-    --ring: #2dd4bf;
-    --info: #60a5fa;
+    --ring: #6b8cff;
+    --info: #38bdf8;
     --action: #f59e0b;
     --critical: #f87171;
     --good: #4ade80;

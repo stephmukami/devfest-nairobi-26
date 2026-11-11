@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button'
-import { ATTENTION_STATUSES, STATUS_ICON, STATUS_LABEL, STATUS_TONE, TONE_TEXT } from '@/lib/format'
-import { NotificationIcon } from '@/lib/icons'
+import { ATTENTION_STATUSES, STATUS_LABEL, STATUS_TONE, TONE_TEXT } from '@/lib/format'
 import { navigate } from '@/lib/route'
 import type { Parcel, Persona } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { stretchedLink } from './ParcelList'
+import { ParcelThumb } from './ParcelThumb'
 
 function Stat({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
   return (
@@ -18,22 +19,18 @@ function ParcelRow({ parcel, onOpen }: { parcel: Parcel; onOpen: () => void }) {
   const tone = STATUS_TONE[parcel.status] ?? 'neutral'
   const showEta = parcel.eta_minutes != null && !['delivered', 'failed'].includes(parcel.status)
   return (
-    <li>
-      <button className="flex w-full items-center gap-3 py-3 text-left transition-colors hover:bg-muted/50" onClick={onOpen}>
-        <span className="grid size-11 flex-none place-items-center rounded-lg border bg-muted/50 text-foreground/80">
-          <NotificationIcon name={STATUS_ICON[parcel.status] ?? 'package'} size={22} />
-        </span>
-        <span className="grid min-w-0 flex-1">
-          <strong className="truncate font-semibold">{parcel.item}</strong>
-          <span className="truncate text-sm text-muted-foreground">{parcel.store}</span>
-        </span>
-        <span className="grid flex-none justify-items-end">
-          <span className="font-semibold tabular-nums">
-            {showEta ? `~${parcel.eta_minutes} min` : parcel.status === 'payment_due' ? `KES ${parcel.fee_kes}` : parcel.parcel_id}
-          </span>
-          <span className={cn('text-xs font-medium', TONE_TEXT[tone])}>{STATUS_LABEL[parcel.status] ?? parcel.status}</span>
-        </span>
+    <li className="relative flex items-center gap-3 py-3 transition-colors hover:bg-muted/50 has-[[data-card-link]:focus-visible]:bg-muted/50">
+      <ParcelThumb parcel={parcel} />
+      <button data-card-link className={cn(stretchedLink, 'grid min-w-0 flex-1')} onClick={onOpen}>
+        <strong className="truncate font-semibold">{parcel.item}</strong>
+        <span className="truncate text-sm text-muted-foreground">{parcel.store}</span>
       </button>
+      <span className="grid flex-none justify-items-end">
+        <span className="font-semibold tabular-nums">
+          {showEta ? `~${parcel.eta_minutes} min` : parcel.status === 'payment_due' ? `KES ${parcel.fee_kes}` : parcel.parcel_id}
+        </span>
+        <span className={cn('text-xs font-medium', TONE_TEXT[tone])}>{STATUS_LABEL[parcel.status] ?? parcel.status}</span>
+      </span>
     </li>
   )
 }
@@ -60,7 +57,7 @@ export function HomeDashboard({ persona, parcels, onOpenParcel }: Props) {
       <div className="grid gap-5">
         <h1 className="text-xl font-bold tracking-tight">Hello {persona.name}</h1>
 
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:p-5">
+        <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-semibold">Delivery overview</h2>
             <span className="text-sm text-muted-foreground">{month}</span>
@@ -74,7 +71,7 @@ export function HomeDashboard({ persona, parcels, onOpenParcel }: Props) {
         </section>
       </div>
 
-      <section className="rounded-xl bg-card px-4 pt-4 pb-1 ring-1 ring-foreground/10 sm:px-5 lg:mt-[4.25rem]">
+      <section className="rounded-lg bg-card px-4 pt-4 pb-1 ring-1 ring-foreground/10 sm:px-5 lg:mt-[4.25rem]">
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-semibold">Your parcels</h2>
           <Button variant="link" className="h-auto px-0 text-muted-foreground" onClick={() => navigate('/orders')}>
