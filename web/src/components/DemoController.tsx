@@ -129,24 +129,14 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
               <span className="grid size-8 flex-none place-items-center rounded-full bg-action/15 text-sm font-bold text-action">
                 {persona?.name.charAt(0)}
               </span>
-              <span className="grid min-w-0 text-left">
-                <span className="truncate font-semibold">{persona?.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {persona?.locale}
-                  {persona?.about ? ` · ${persona.about}` : ''}
-                </span>
-              </span>
+              <span className="truncate text-left font-semibold">{persona?.name}</span>
             </span>
           </SelectTrigger>
-          <SelectContent>
+          {/* popper: drop down under the custom trigger. The default "item-aligned" mode needs a SelectValue to line up with and pushes the list off-screen without one. */}
+          <SelectContent position="popper" className="w-(--radix-select-trigger-width)">
             {config.personas.map((p) => (
               <SelectItem key={p.user_id} value={p.user_id}>
-                <span className="grid">
-                  <span>
-                    {p.name} ({p.locale})
-                  </span>
-                  {p.about && <span className="text-xs text-muted-foreground">{p.about}</span>}
-                </span>
+                {p.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -175,7 +165,7 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
               </span>
             </span>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" className="w-(--radix-select-trigger-width)">
             {parcels.map((p) => (
               <SelectItem key={p.parcel_id} value={p.parcel_id}>
                 {p.parcel_id} · {p.item} ({STATUS_LABEL[p.status] ?? p.status})

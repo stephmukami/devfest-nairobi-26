@@ -168,7 +168,11 @@ class Enricher:
             return fallback(exc.reason, self._elapsed(started))
         except Exception as exc:  # network, quota, auth, SDK errors
             log.warning("gemini call failed: %r", exc)
-            return fallback(f"error:{type(exc).__name__}", self._elapsed(started))
+            # google-genai API errors carry the HTTP code and status (e.g. 402 RESOURCE_EXHAUSTED when
+            # prepaid credits run out); show those so the Inspector says why, not just "ClientError".
+            code, status = getattr(exc, "code", None), getattr(exc, "status", None)
+            reason = f"error:{code} {status}" if isinstance(code, int) else f"error:{type(exc).__name__}"
+            return fallback(reason, self._elapsed(started))
 
         self._cache[key] = (new_title, new_body, new_icon)
         if len(self._cache) > self._cache_size:

@@ -35,6 +35,24 @@ const FALLBACK_LABEL: Record<string, string> = {
   gemini_not_configured: 'No Gemini key',
 }
 
+// Gemini API errors arrive as "error:<HTTP code> <STATUS>", e.g. "error:402 RESOURCE_EXHAUSTED".
+const GEMINI_HTTP_LABEL: Record<string, string> = {
+  '400': 'Gemini rejected the request',
+  '401': 'Gemini key rejected',
+  '402': 'Gemini credits used up',
+  '403': 'Gemini key not allowed',
+  '404': 'Gemini model not found',
+  '429': 'Gemini rate limit or quota hit',
+}
+
+function fallbackLabel(reason: string): string {
+  if (FALLBACK_LABEL[reason]) return FALLBACK_LABEL[reason]
+  const code = /^error:(\d{3})/.exec(reason)?.[1]
+  if (code && GEMINI_HTTP_LABEL[code]) return `${GEMINI_HTTP_LABEL[code]} (${code})`
+  if (code?.startsWith('5')) return `Gemini server error (${code})`
+  return reason
+}
+
 const CHANNEL_LABEL: Record<string, string> = {
   sse: 'SSE stream',
   fcm: 'FCM push',
@@ -279,7 +297,7 @@ export function ChannelInspector({ deliveries, status }: { deliveries: Delivery[
                 </Badge>
                 {d.message.fallback_reason && (
                   <Badge className="rounded-md bg-action/15 text-action">
-                    Fallback: {FALLBACK_LABEL[d.message.fallback_reason] ?? d.message.fallback_reason}
+                    Fallback: {fallbackLabel(d.message.fallback_reason)}
                   </Badge>
                 )}
               </div>
