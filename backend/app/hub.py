@@ -209,6 +209,9 @@ class Hub:
     async def tokens(self, user_id: str) -> list[str]:
         return await self._token_store.for_user(user_id)
 
+    async def clear_tokens(self) -> int:
+        return await self._token_store.clear()
+
     # ------------------------------------------------------------ demo reset
 
     def reset(self) -> None:

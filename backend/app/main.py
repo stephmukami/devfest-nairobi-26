@@ -12,7 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 from . import demo
 from .catalogue import catalogue_listing
 from .config import settings, switches
-from .models import CLIENT_ID_PATTERN, ContextUpdate, DeviceRegistration, UserRef
+from .models import CLIENT_ID_PATTERN, ContextUpdate, DeviceRef, DeviceRegistration, UserRef
 from .parcels import PERSONAS
 from .state import hub, pipeline
 
@@ -89,6 +89,13 @@ async def session_context(update: ContextUpdate):
 async def register_device(reg: DeviceRegistration):
     await hub.add_token(_user(reg.user_id), reg.token)
     return {"ok": True, "devices": len(await hub.tokens(reg.user_id))}
+
+
+@app.post("/api/devices/unregister")
+async def unregister_device(ref: DeviceRef):
+    """The customer turned alerts off on this device. Only the token's holder knows it."""
+    await hub.remove_token(ref.token)
+    return {"ok": True}
 
 
 @app.get("/api/stream")

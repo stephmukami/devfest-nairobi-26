@@ -183,6 +183,10 @@ class DeviceRegistration(BaseModel):
     token: str = Field(min_length=20, max_length=4096)
 
 
+class DeviceRef(BaseModel):
+    token: str = Field(min_length=20, max_length=4096)
+
+
 class UserRef(BaseModel):
     user_id: str
 

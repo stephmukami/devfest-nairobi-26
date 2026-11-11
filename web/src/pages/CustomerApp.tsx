@@ -12,8 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Toaster } from '@/components/ui/sonner'
 import { api } from '@/lib/api'
 import { recordAction, usePresence } from '@/lib/context'
+import { SettingsSheet } from '@/components/SettingsSheet'
 import {
   currentAlertsState,
+  disableAlerts,
   enableAlerts,
   listenForeground,
   listenWorkerNavigation,
@@ -47,13 +49,9 @@ function openFromToast(t: Toast) {
   if (t.parcelId) openParcel(t.parcelId)
 }
 
-const ALERTS_NOTE: Partial<Record<AlertsState, string>> = {
-  granted: 'Alerts on',
-  denied: 'Alerts blocked in browser settings',
-  not_configured: 'Push not configured',
-  unsupported: 'Push unsupported in this browser',
-  ios_install: 'For alerts on iPhone: open in Safari, Share → Add to Home Screen, then open Shippy from the icon',
-}
+// The banner is only for a device that has never been asked (or an iPhone that has to install
+// Shippy first). After that, alerts are switched on and off in Settings.
+const BANNER_STATES = new Set<AlertsState>(['default', 'ios_install'])
 
 export function CustomerApp({ route, config, userId, onUserChange }: Props) {
   const persona = config.personas.find((p) => p.user_id === userId) ?? config.personas[0]
@@ -199,6 +197,12 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
               onMarkAllRead={markRead}
               onOpenItem={(i) => i.parcel_id && openParcel(i.parcel_id)}
             />
+            <SettingsSheet
+              personaName={persona.name}
+              alerts={alerts}
+              onEnable={async () => setAlerts(await enableAlerts(userId, true))}
+              onDisable={async () => setAlerts(await disableAlerts())}
+            />
             <Select value={userId} onValueChange={onUserChange}>
               <SelectTrigger className="gap-2 border-0 bg-transparent px-1.5 shadow-none" aria-label="Customer">
                 <span className="grid size-8 place-items-center rounded-full bg-primary/15 text-sm font-bold text-primary">
@@ -218,11 +222,13 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
         </div>
       </header>
 
-      {alerts !== 'granted' && (
+      {BANNER_STATES.has(alerts) && (
         <div className="border-b bg-muted">
           <div className={cn(container, 'flex flex-wrap items-center gap-3 py-2 text-sm')}>
-            {ALERTS_NOTE[alerts] ? (
-              <span className="text-muted-foreground">{ALERTS_NOTE[alerts]}</span>
+            {alerts === 'ios_install' ? (
+              <span className="text-muted-foreground">
+                For alerts on iPhone: open in Safari, Share → Add to Home Screen, then open Shippy from the icon
+              </span>
             ) : (
               <>
                 <span className="text-muted-foreground">Get delivery updates even when this tab is closed.</span>

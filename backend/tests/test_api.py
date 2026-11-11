@@ -51,6 +51,19 @@ def test_device_counts_follow_the_persona_a_browser_last_registered_as(client):
     asyncio.run(hub.remove_token(token))
 
 
+def test_unregister_and_clear_devices(client):
+    a, b = "tok-unregister-a-" + "x" * 30, "tok-unregister-b-" + "x" * 30
+    client.post("/api/devices", json={"user_id": "u_amani", "token": a})
+    client.post("/api/devices", json={"user_id": "u_amani", "token": b})
+    base = client.get("/api/demo/devices").json()["u_amani"]
+
+    assert client.post("/api/devices/unregister", json={"token": a}).status_code == 200
+    assert client.get("/api/demo/devices").json()["u_amani"] == base - 1
+
+    assert client.post("/api/demo/devices/clear").json()["cleared"] >= 1
+    assert set(client.get("/api/demo/devices").json().values()) == {0}
+
+
 def test_priority_cannot_be_set_by_emitter(client):
     r = client.post(
         "/api/demo/events",

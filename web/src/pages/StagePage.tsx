@@ -79,6 +79,7 @@ export function StagePage({ config, userId, onUserChange }: Props) {
           presence={presence}
           devices={devices}
           onAfterReset={load}
+          onDevicesCleared={loadDevices}
           onFire={setPending}
           onFireFailed={() => setPending(null)}
         />

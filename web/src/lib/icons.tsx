@@ -23,7 +23,9 @@ import {
   Location01Icon,
   Motorbike01Icon,
   Notification01Icon,
+  NotificationOff01Icon,
   PackageIcon,
+  Settings01Icon,
   Store01Icon,
   WarehouseIcon,
 } from '@hugeicons/core-free-icons'
@@ -48,6 +50,8 @@ const ICONS: Record<IconName, typeof PackageIcon> = {
 // UI chrome icons (not sent by the server).
 const UI_ICONS = {
   bell: Notification01Icon,
+  bellOff: NotificationOff01Icon,
+  settings: Settings01Icon,
   close: Cancel01Icon,
   back: ArrowLeft02Icon,
   next: ArrowRight02Icon,

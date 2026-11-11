@@ -53,6 +53,12 @@ class MemoryTokenStore:
     async def for_user(self, user_id: str) -> list[str]:
         return sorted(self._tokens.get(user_id, {}))
 
+    async def clear(self) -> int:
+        """Forget every device. Returns how many tokens were dropped."""
+        dropped = sum(len(t) for t in self._tokens.values())
+        self._tokens.clear()
+        return dropped
+
 
 def doc_id(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
@@ -139,3 +145,20 @@ class FirestoreTokenStore(MemoryTokenStore):
     async def for_user(self, user_id: str) -> list[str]:
         await self._ensure_loaded(user_id)
         return await super().for_user(user_id)
+
+    async def clear(self) -> int:
+        dropped = await super().clear()
+
+        def delete_all(col) -> int:
+            count = 0
+            for doc in col.stream():
+                doc.reference.delete()
+                count += 1
+            return count
+
+        deleted = await self._run("clear", delete_all)
+        if deleted is not None:
+            # Firestore is empty now, so an empty in-memory map is the full picture for every user.
+            self._loaded.clear()
+            dropped = max(dropped, deleted)
+        return dropped

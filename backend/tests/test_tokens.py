@@ -6,8 +6,9 @@ from app.tokens import MAX_TOKENS_PER_USER, FirestoreTokenStore, MemoryTokenStor
 
 
 class FakeDoc:
-    def __init__(self, data):
+    def __init__(self, data, reference=None):
         self._data = data
+        self.reference = reference
 
     def to_dict(self):
         return dict(self._data)
@@ -46,6 +47,10 @@ class FakeCollection:
 
     def where(self, *, filter):
         return FakeQuery(self._store, filter)
+
+    def stream(self):
+        self._store.check()
+        return [FakeDoc(d, FakeDocRef(self._store, id_)) for id_, d in list(self._store.docs.items())]
 
 
 class FakeFirestore:
@@ -158,3 +163,22 @@ def test_memory_store_rules():
         return await s.for_user("a"), await s.for_user("b")
 
     assert run(go()) == ([], [tok(1)])
+
+
+def test_clear_forgets_every_device_in_memory_and_in_firestore():
+    db = FakeFirestore()
+    s = store_for(db)
+    run(s.add("u_amani", tok(1)))
+    run(s.add("u_wanjiru", tok(2)))
+    assert run(s.clear()) == 2
+    assert db.docs == {}
+    assert run(s.for_user("u_amani")) == []
+    # A fresh process (restart) sees nothing either.
+    assert run(store_for(db).for_user("u_wanjiru")) == []
+
+
+def test_memory_clear():
+    s = MemoryTokenStore()
+    run(s.add("u_amani", tok(1)))
+    assert run(s.clear()) == 1
+    assert run(s.for_user("u_amani")) == []

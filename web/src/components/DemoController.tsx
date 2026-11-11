@@ -21,6 +21,8 @@ interface Props {
   /** Devices with alerts on per persona; null until loaded (or without a demo key). */
   devices: Record<string, number> | null
   onAfterReset: () => void
+  /** Registered devices were cleared; refresh the counts. */
+  onDevicesCleared?: () => void
   /** An event was sent; the stage shows the inspector as pending until its delivery arrives. */
   onFire?: (label: string) => void
   /** The send failed, so no delivery is coming. */
@@ -66,6 +68,7 @@ export function DemoController({
   presence,
   devices,
   onAfterReset,
+  onDevicesCleared,
   onFire,
   onFireFailed,
 }: Props) {
@@ -305,6 +308,20 @@ export function DemoController({
           }
         >
           Reset demo data
+        </Button>
+        <Button
+          variant="outline"
+          className="border-dashed text-muted-foreground"
+          disabled={busy !== null}
+          title="Forget every device with alerts on. Phones that still allow alerts sign up again the next time Shippy opens."
+          onClick={() =>
+            run('clear devices', async () => {
+              await api.clearDevices()
+              onDevicesCleared?.()
+            })
+          }
+        >
+          <Icon name="bellOff" size={16} /> Clear devices
         </Button>
         {busy && <p className="text-sm text-muted-foreground">Sending {busy}…</p>}
         {error && <p className="text-sm text-destructive">{error}</p>}

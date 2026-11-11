@@ -136,6 +136,13 @@ async def reset():
     return {"ok": True}
 
 
+@router.post("/devices/clear")
+async def clear_devices():
+    """Start a demo run with no registered devices. Phones with alerts still allowed register again
+    the next time Shippy opens (or its live stream reconnects)."""
+    return {"cleared": await pipeline.hub.clear_tokens()}
+
+
 @router.get("/deliveries")
 async def deliveries(user_id: str):
     require_user(user_id)

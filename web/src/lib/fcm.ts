@@ -1,7 +1,12 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
-import { getMessaging, getToken, isSupported, onMessage, type Messaging } from 'firebase/messaging'
+import { deleteToken, getMessaging, getToken, isSupported, onMessage, type Messaging } from 'firebase/messaging'
 import { api } from './api'
 import { isSseConnected, markSeen } from './sse'
+import { load, save } from './storage'
+
+// Set when the customer turns alerts off in Settings, so loads and reconnects do not re-register.
+const ALERTS_OFF_KEY = 'shippy.alertsOff'
+const alertsTurnedOff = () => load(ALERTS_OFF_KEY, '') === '1'
 
 const env = import.meta.env
 const firebaseConfig = {
@@ -17,7 +22,16 @@ export const fcmConfigured = Boolean(
   firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.messagingSenderId && firebaseConfig.appId && vapidKey,
 )
 
-export type AlertsState = 'not_configured' | 'unsupported' | 'ios_install' | 'default' | 'denied' | 'granted' | 'error'
+/** `off`: the browser allows notifications but the customer turned Shippy alerts off. */
+export type AlertsState =
+  | 'not_configured'
+  | 'unsupported'
+  | 'ios_install'
+  | 'default'
+  | 'denied'
+  | 'granted'
+  | 'off'
+  | 'error'
 
 /** iOS only delivers web push to a site added to the Home Screen and opened from its icon.
  *  Safari tabs, Chrome (CriOS) and the Google app on iPhone never get a push subscription. */
@@ -49,18 +63,24 @@ export async function currentAlertsState(): Promise<AlertsState> {
   if (!fcmConfigured) return 'not_configured'
   if (iosNeedsInstall()) return 'ios_install'
   if (!('Notification' in window) || !(await isSupported())) return 'unsupported'
+  if (Notification.permission === 'granted' && alertsTurnedOff()) return 'off'
   return Notification.permission as AlertsState
 }
 
 /**
  * Get an FCM token and register it for the user.
  * `fromGesture` must be true only when called from a click: permission prompts need a user gesture.
- * Called on every load too (tokens are held in memory server-side, so a restart loses them).
+ * Called on every load too (tokens are held in memory server-side, so a restart loses them),
+ * except after the customer turned alerts off: only their own tap turns them back on.
  */
 export async function enableAlerts(userId: string, fromGesture: boolean): Promise<AlertsState> {
   if (!fcmConfigured) return 'not_configured'
   if (iosNeedsInstall()) return 'ios_install'
   if (!('Notification' in window)) return 'unsupported'
+  if (alertsTurnedOff()) {
+    if (!fromGesture) return Notification.permission === 'granted' ? 'off' : (Notification.permission as AlertsState)
+    save(ALERTS_OFF_KEY, '')
+  }
   // Ask before any await: Safari drops the click's user activation across async hops
   // and then refuses the prompt.
   let permission = Notification.permission
@@ -78,6 +98,25 @@ export async function enableAlerts(userId: string, fromGesture: boolean): Promis
     console.error('FCM registration failed', err)
     return 'error'
   }
+}
+
+/** Turn alerts off on this device: drop its push subscription and tell the server to forget it.
+ *  The browser permission stays, so turning alerts back on needs no prompt. */
+export async function disableAlerts(): Promise<AlertsState> {
+  save(ALERTS_OFF_KEY, '1')
+  syncAppBadge(0)
+  const m = await ensureMessaging()
+  if (!m || Notification.permission !== 'granted') return currentAlertsState()
+  try {
+    const serviceWorkerRegistration = await registerWorker()
+    const token = await getToken(m, { vapidKey, serviceWorkerRegistration })
+    if (token) await api.unregisterDevice(token)
+    await deleteToken(m)
+  } catch (err) {
+    // The flag is saved, so this device will not re-register; a stale server token is removed on its next failed send.
+    console.error('FCM unregister failed', err)
+  }
+  return 'off'
 }
 
 export interface ForegroundPush {

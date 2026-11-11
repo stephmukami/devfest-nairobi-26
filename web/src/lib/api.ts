@@ -50,6 +50,7 @@ export const api = {
     request<SessionState>('/api/session/context', post({ user_id: userId, client_id: clientId, context })),
   registerDevice: (userId: string, token: string) =>
     request('/api/devices', post({ user_id: userId, token })),
+  unregisterDevice: (token: string) => request('/api/devices/unregister', post({ token })),
 
   // Demo controller (X-Demo-Key)
   emit: (userId: string, type: string, parcelId?: string) =>
@@ -67,6 +68,7 @@ export const api = {
   deliveries: (userId: string) => request<Delivery[]>(`/api/demo/deliveries?${q(userId)}`, {}, true),
   /** Devices with alerts on, keyed by persona user_id. */
   devices: () => request<Record<string, number>>('/api/demo/devices', {}, true),
+  clearDevices: () => request<{ cleared: number }>('/api/demo/devices/clear', post({}), true),
 }
 
 /** Best-effort context post that survives page unload (pagehide). Same-origin via /api. */
