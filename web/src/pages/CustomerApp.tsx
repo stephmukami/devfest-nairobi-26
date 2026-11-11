@@ -154,6 +154,13 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
 
   const status = useStream({ userId, clientId, onDelivery })
 
+  // Locally the API keeps FCM tokens in memory, so a restart (including every --reload) forgets them,
+  // and a tab that stays open would never re-register. Re-register each time the live stream
+  // (re)connects, which is exactly when the API has come back. Registering twice is harmless.
+  useEffect(() => {
+    if (status === 'open' && alerts === 'granted') void enableAlerts(userId, false)
+  }, [status, alerts, userId])
+
   const markRead = () => {
     void api.markInboxRead(userId).catch(() => {})
     setInbox((items) => items.map((i) => ({ ...i, read: true })))
