@@ -117,7 +117,7 @@ jobs:
       - name: gcloud run deploy
         env:
           DEMO_KEY: ${{ secrets.DEMO_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || secrets.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || secrets.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}
           MIN_INSTANCES: ${{ vars.MIN_INSTANCES || secrets.MIN_INSTANCES || '0' }}
         run: |
           SITE="https://${PROJECT_ID}.web.app"

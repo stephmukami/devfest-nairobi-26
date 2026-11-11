@@ -212,7 +212,7 @@ def test_golden_live(event_type, ctx):
     """9 event types x 3 contexts against the real model. Validation is applied inside enrich."""
     generate = make_gemini_generate(
         os.environ["GEMINI_API_KEY"],
-        os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+        os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite"),
         int(os.getenv("GEMINI_THINKING_BUDGET", "0")) if os.getenv("GEMINI_THINKING_BUDGET", "0") else None,
     )
     timeout = float(os.getenv("GOLDEN_TIMEOUT_S", "5"))

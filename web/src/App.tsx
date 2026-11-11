@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AppSkeleton } from './components/LoadingSkeletons'
 import { api } from './lib/api'
 import { useRoute } from './lib/route'
 import { load, save } from './lib/storage'
@@ -33,7 +34,7 @@ export default function App() {
   }
 
   if (error) return <p className="p-8 text-destructive">Could not reach the Shippy API: {error}</p>
-  if (!config) return <p className="p-8 text-muted-foreground">Loading…</p>
+  if (!config) return <AppSkeleton stage={route.name === 'stage'} />
 
   const validUser = config.personas.some((p) => p.user_id === userId) ? userId : config.personas[0].user_id
 

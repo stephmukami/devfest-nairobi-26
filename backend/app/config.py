@@ -36,9 +36,11 @@ def _list(name: str, default: list[str]) -> list[str]:
 @dataclass(frozen=True)
 class Settings:
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-2.5-flash"
-    # Thinking adds latency that blows the 1.5 s budget. 0 disables it on 2.5 Flash.
-    # Set GEMINI_THINKING_BUDGET="" to omit the setting for models that reject it.
+    gemini_model: str = "gemini-3.1-flash-lite"
+    # gemini-2.5-flash is retired for new users (404). 3.1 Flash-Lite answers in ~1 s with thinking off,
+    # inside the 1.5 s budget; full 3.x Flash models take ~1.6-2.2 s and would mostly time out.
+    # Thinking adds latency and can truncate the JSON, so 0 disables it.
+    # Set GEMINI_THINKING_BUDGET="" to omit the setting for models that reject 0 (e.g. gemini-3.5-flash-lite).
     gemini_thinking_budget: int | None = 0
     enrich_timeout_s: float = 1.5
     allowed_origins: list[str] = field(default_factory=list)

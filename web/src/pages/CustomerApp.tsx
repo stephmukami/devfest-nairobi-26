@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ConnDot } from '@/components/ConnDot'
 import { HomeDashboard } from '@/components/HomeDashboard'
 import { Inbox } from '@/components/Inbox'
+import { HomeSkeleton, OrdersSkeleton } from '@/components/LoadingSkeletons'
 import { ParcelList } from '@/components/ParcelList'
 import { ParcelThumb } from '@/components/ParcelThumb'
 import { ParcelTimeline } from '@/components/ParcelTimeline'
@@ -57,6 +58,8 @@ const ALERTS_NOTE: Partial<Record<AlertsState, string>> = {
 export function CustomerApp({ route, config, userId, onUserChange }: Props) {
   const persona = config.personas.find((p) => p.user_id === userId) ?? config.personas[0]
   const [parcels, setParcels] = useState<Parcel[]>([])
+  // False until the current customer's parcels arrive, so lists show skeletons, not "No parcels".
+  const [parcelsLoaded, setParcelsLoaded] = useState(false)
   const [inbox, setInbox] = useState<InboxItem[]>([])
   const [flashId, setFlashId] = useState<string | null>(null)
   const [alerts, setAlerts] = useState<AlertsState>('default')
@@ -68,7 +71,12 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
   usePresence(userId, clientId, routeView(route), parcelId, persona.locale)
 
   const reload = useCallback(() => {
-    api.parcels(userId).then(setParcels).catch(() => {})
+    setParcelsLoaded(false)
+    api
+      .parcels(userId)
+      .then(setParcels)
+      .catch(() => {})
+      .finally(() => setParcelsLoaded(true))
     api.inbox(userId).then(setInbox).catch(() => {})
   }, [userId])
 
@@ -221,13 +229,22 @@ export function CustomerApp({ route, config, userId, onUserChange }: Props) {
       )}
 
       <main className={cn(container, 'flex-1 pt-6 pb-24 lg:pt-8')}>
-        {route.name === 'home' && <HomeDashboard persona={persona} parcels={parcels} onOpenParcel={openParcel} />}
+        {route.name === 'home' &&
+          (parcelsLoaded ? (
+            <HomeDashboard persona={persona} parcels={parcels} onOpenParcel={openParcel} />
+          ) : (
+            <HomeSkeleton />
+          ))}
 
         {split && (
           // Desktop: list and detail side by side. Phone: one at a time (the route decides which).
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)]">
             <div className={cn(route.name === 'parcel' && 'hidden lg:block', 'lg:sticky lg:top-20')}>
-              <ParcelList parcels={parcels} onOpen={openParcel} selectedId={parcelId} />
+              {parcelsLoaded ? (
+                <ParcelList parcels={parcels} onOpen={openParcel} selectedId={parcelId} />
+              ) : (
+                <OrdersSkeleton />
+              )}
             </div>
             <div className={cn(route.name === 'orders' && 'hidden lg:block')}>
               {route.name === 'parcel' ? (
