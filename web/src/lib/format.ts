@@ -46,14 +46,6 @@ export const TONE_TEXT = {
 /** Statuses where the customer has to do something (or should know about a problem). */
 export const ATTENTION_STATUSES = new Set(['payment_due', 'needs_address', 'failed', 'delayed'])
 
-/** "Good morning" in the persona's language. */
-export function greeting(locale: string, hour = new Date().getHours()): string {
-  const sw = locale.startsWith('sw')
-  if (hour < 12) return sw ? 'Habari za asubuhi' : 'Good morning'
-  if (hour < 17) return sw ? 'Habari za mchana' : 'Good afternoon'
-  return sw ? 'Habari za jioni' : 'Good evening'
-}
-
 export function timeOf(iso: string): string {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

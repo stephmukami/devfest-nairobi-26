@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { ATTENTION_STATUSES, greeting, STATUS_ICON, STATUS_LABEL, STATUS_TONE, TONE_TEXT } from '@/lib/format'
+import { ATTENTION_STATUSES, STATUS_ICON, STATUS_LABEL, STATUS_TONE, TONE_TEXT } from '@/lib/format'
 import { NotificationIcon } from '@/lib/icons'
 import { navigate } from '@/lib/route'
 import type { Parcel, Persona } from '@/lib/types'
@@ -58,15 +58,7 @@ export function HomeDashboard({ persona, parcels, onOpenParcel }: Props) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-start">
       <div className="grid gap-5">
-        <div className="flex items-center gap-3">
-          <span className="grid size-12 place-items-center rounded-xl bg-primary/15 text-lg font-bold text-primary">
-            {persona.name.charAt(0)}
-          </span>
-          <div>
-            <p className="text-sm text-muted-foreground">{greeting(persona.locale)}!</p>
-            <h1 className="text-xl font-bold tracking-tight">{persona.name}</h1>
-          </div>
-        </div>
+        <h1 className="text-xl font-bold tracking-tight">Hello {persona.name}</h1>
 
         <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:p-5">
           <div className="flex items-center justify-between gap-3">
