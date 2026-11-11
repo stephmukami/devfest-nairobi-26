@@ -18,7 +18,13 @@ interface Props {
   onUserChange: (userId: string) => void
   parcels: Parcel[]
   presence: Presence | null
+  /** Devices with alerts on per persona; null until loaded (or without a demo key). */
+  devices: Record<string, number> | null
   onAfterReset: () => void
+  /** An event was sent; the stage shows the inspector as pending until its delivery arrives. */
+  onFire?: (label: string) => void
+  /** The send failed, so no delivery is coming. */
+  onFireFailed?: () => void
 }
 
 function describeSession(p: Presence | null): string {
@@ -29,6 +35,8 @@ function describeSession(p: Presence | null): string {
   if (!s.visible) return `${tabs} · hidden`
   return `${tabs} · visible · ${s.view}${s.parcel_id ? ` ${s.parcel_id}` : ''}`
 }
+
+const deviceLabel = (n: number) => `${n} device${n === 1 ? '' : 's'}`
 
 const GROUPS: { priority: Priority; title: string }[] = [
   { priority: 'info', title: 'Trigger info events' },
@@ -50,7 +58,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 const triggerRow =
   'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted disabled:cursor-progress disabled:opacity-60'
 
-export function DemoController({ config, userId, onUserChange, parcels, presence, onAfterReset }: Props) {
+export function DemoController({
+  config,
+  userId,
+  onUserChange,
+  parcels,
+  presence,
+  devices,
+  onAfterReset,
+  onFire,
+  onFireFailed,
+}: Props) {
   const [parcelId, setParcelId] = useState('')
   const [switches, setSwitches] = useState<Switches>(config.switches)
   const [key, setKey] = useState(getDemoKey())
@@ -137,6 +155,11 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
             {config.personas.map((p) => (
               <SelectItem key={p.user_id} value={p.user_id}>
                 {p.name}
+                {devices && (
+                  <span className={cn('text-xs', devices[p.user_id] ? 'text-good' : 'text-muted-foreground')}>
+                    · {deviceLabel(devices[p.user_id] ?? 0)}
+                  </span>
+                )}
               </SelectItem>
             ))}
           </SelectContent>
@@ -145,6 +168,14 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
           <span className={cn('size-2 rounded-full', presence?.session.visible ? 'bg-good' : 'bg-muted-foreground')} />
           {describeSession(presence)}
         </p>
+        {devices && (
+          <p className="mt-1 flex items-center gap-2 px-1 text-xs text-muted-foreground">
+            <Icon name="bell" size={12} className={devices[userId] ? 'text-good' : 'text-action'} />
+            {devices[userId]
+              ? `Push reaches ${deviceLabel(devices[userId])}`
+              : 'No device has alerts on for this customer: pushes go nowhere'}
+          </p>
+        )}
       </section>
 
       <section>
@@ -189,7 +220,13 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
                     disabled={busy !== null}
                     onClick={() =>
                       run(t.type, async () => {
-                        await api.emit(userId, t.type, parcelId || undefined)
+                        onFire?.(eventLabel(t.type))
+                        try {
+                          await api.emit(userId, t.type, parcelId || undefined)
+                        } catch (e) {
+                          onFireFailed?.()
+                          throw e
+                        }
                         setFired(t.type)
                       })
                     }
@@ -210,7 +247,13 @@ export function DemoController({ config, userId, onUserChange, parcels, presence
           disabled={busy !== null}
           onClick={() =>
             run('burst', async () => {
-              await api.burst(userId)
+              onFire?.('Burst: 3 events')
+              try {
+                await api.burst(userId)
+              } catch (e) {
+                onFireFailed?.()
+                throw e
+              }
               setFired('burst')
             })
           }

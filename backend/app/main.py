@@ -28,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(demo.router)
+app.include_router(demo.status_router)
 
 
 def _user(user_id: str) -> str:

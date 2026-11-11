@@ -65,6 +65,8 @@ export const api = {
     request<Switches>('/api/demo/settings', { method: 'PUT', body: JSON.stringify(update) }, true),
   reset: () => request('/api/demo/reset', post({}), true),
   deliveries: (userId: string) => request<Delivery[]>(`/api/demo/deliveries?${q(userId)}`, {}, true),
+  /** Devices with alerts on, keyed by persona user_id. */
+  devices: () => request<Record<string, number>>('/api/demo/devices', {}, true),
 }
 
 /** Best-effort context post that survives page unload (pagehide). Same-origin via /api. */

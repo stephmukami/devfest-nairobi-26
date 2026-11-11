@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { shortType, timeOf } from '@/lib/format'
 import { Icon } from '@/lib/icons'
 import { PRIORITY_TEXT } from '@/lib/priority'
@@ -181,12 +182,91 @@ function groupRecent(deliveries: Delivery[]): RecentGroup[] {
   return [...groups.values()]
 }
 
-export function ChannelInspector({ deliveries, status }: { deliveries: Delivery[]; status: StreamStatus }) {
+/** The pipeline while an event is being processed: real step headings, skeleton content. */
+function PendingSteps({ label }: { label: string }) {
+  return (
+    <>
+      <div className="flex items-center gap-2.5 border-b px-6 py-3 text-sm" role="status">
+        <span className="size-2 animate-pulse rounded-full bg-primary" />
+        <span>
+          Processing <span className="font-semibold">{label}</span>…
+        </span>
+      </div>
+      <ol className="px-4 py-6 sm:px-6" aria-busy="true">
+        <Step n={1} tone="info" icon="code" title="Event facts">
+          <Panel className="grid gap-2">
+            {['w-1/3', 'w-1/2', 'w-2/5', 'w-1/4', 'w-3/5', 'w-2/5'].map((w, i) => (
+              <Skeleton key={i} className={cn('h-3.5', w, i > 0 && i < 5 && 'ml-4')} />
+            ))}
+          </Panel>
+        </Step>
+        <Step n={2} tone="action" icon="scale" title="Decision logic">
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Panel key={i} className="flex items-center justify-between py-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-16" />
+              </Panel>
+            ))}
+          </div>
+          <Skeleton className="mt-3 h-3.5 w-3/4" />
+        </Step>
+        <Step n={3} tone="primary" icon="chat" title="Copy generator">
+          <Panel>
+            <div className="flex items-start gap-3">
+              <Skeleton className="size-12 flex-none rounded-full" />
+              <div className="grid flex-1 gap-2">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-4/5" />
+              </div>
+            </div>
+            <div className="mt-3 flex gap-1.5">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-16" />
+              <Skeleton className="h-5 w-20" />
+            </div>
+          </Panel>
+        </Step>
+        <Step n={4} tone="good" icon="send" title="Delivery channels" last>
+          <div className="grid gap-2.5">
+            {Array.from({ length: 3 }, (_, i) => (
+              <Panel key={i} className="flex items-center justify-between py-3">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-14" />
+              </Panel>
+            ))}
+          </div>
+        </Step>
+      </ol>
+    </>
+  )
+}
+
+export function ChannelInspector({
+  deliveries,
+  status,
+  pending,
+}: {
+  deliveries: Delivery[]
+  status: StreamStatus
+  /** Label of an event fired from the stage whose delivery has not arrived yet. */
+  pending?: string | null
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const latest = deliveries[0]
   // Follow the newest delivery unless the presenter pinned an older one.
   useEffect(() => setSelectedId(null), [latest?.id])
   const d = deliveries.find((x) => x.id === selectedId) ?? latest
+
+  if (pending) {
+    return (
+      <Card className="min-w-0 gap-0 rounded-lg py-0">
+        <Header status={status} />
+        <PendingSteps label={pending} />
+      </Card>
+    )
+  }
 
   if (!d) {
     return (

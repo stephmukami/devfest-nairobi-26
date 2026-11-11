@@ -61,6 +61,15 @@ def require_user(user_id: str) -> None:
 
 
 router = APIRouter(prefix="/api/demo", dependencies=[Depends(require_demo_key), Depends(rate_limit)])
+# Cheap reads the stage view refreshes often: demo key only, no rate limit.
+status_router = APIRouter(prefix="/api/demo", dependencies=[Depends(require_demo_key)])
+
+
+@status_router.get("/devices")
+async def devices():
+    """Devices with alerts on, per persona. A browser's token belongs to the persona it last
+    registered as, so this shows which persona a phone will actually receive pushes for."""
+    return {user_id: len(await pipeline.hub.tokens(user_id)) for user_id in PERSONAS}
 
 
 @router.post("/events")

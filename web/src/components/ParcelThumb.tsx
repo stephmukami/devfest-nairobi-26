@@ -6,9 +6,11 @@ import type { Parcel } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 // Product photos made from the JPGs in public/: 256px squares in public/items for lists,
-// up to 1200px in public/items/large for the pop-out. Parcels without a photo show their status icon.
+// up to 1200px in public/items/large for the pop-out. An item missing here shows its status icon.
 const ITEM_IMAGE: Record<string, string> = {
   'Woven basket': 'basket',
+  'Bluetooth speaker': 'bluetooth-speaker',
+  'Football boots': 'football-boots',
   'Bedsheet set': 'bedsheets',
   Blender: 'blender',
   'Coffee beans': 'coffee-beans',

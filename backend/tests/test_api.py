@@ -1,5 +1,7 @@
 """End-to-end through the HTTP API (no Gemini, no FCM credentials needed)."""
 
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -31,6 +33,22 @@ def test_emit_offline_action_goes_to_push_then_inbox(client):
     assert client.get("/api/inbox", params={"user_id": "u_amani"}).json()[0]["event_id"] == delivery["id"]
     parcel = next(p for p in client.get("/api/parcels", params={"user_id": "u_amani"}).json() if p["parcel_id"] == "SHP-48213")
     assert parcel["status"] == "out_for_delivery" and parcel["eta_minutes"] == 25
+
+
+def test_device_counts_follow_the_persona_a_browser_last_registered_as(client):
+    token = "tok-device-counts-" + "x" * 40
+    assert client.post("/api/devices", json={"user_id": "u_amani", "token": token}).status_code == 200
+    counts = client.get("/api/demo/devices").json()
+    assert set(counts) >= {"u_amani", "u_wanjiru"}
+    amani_before = counts["u_amani"]
+    assert amani_before >= 1
+
+    # Switching persona on the same phone moves its token.
+    client.post("/api/devices", json={"user_id": "u_wanjiru", "token": token})
+    counts = client.get("/api/demo/devices").json()
+    assert counts["u_amani"] == amani_before - 1
+    assert counts["u_wanjiru"] >= 1
+    asyncio.run(hub.remove_token(token))
 
 
 def test_priority_cannot_be_set_by_emitter(client):
