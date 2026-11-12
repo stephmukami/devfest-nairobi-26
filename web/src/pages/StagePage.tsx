@@ -107,7 +107,7 @@ export function StagePage({ config, userId, onUserChange }: Props) {
           >
             <Icon name="sidebar" size={20} />
           </Button>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Signals over noise</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Signals over Noise</h1>
           <Button variant="outline" asChild className="ml-auto">
             <a href="/" target="_blank" rel="noreferrer">
               Open customer app <Icon name="external" size={16} />

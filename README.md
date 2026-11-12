@@ -4,7 +4,7 @@ One delivery event moves through FastAPI, an SSE stream, Gemini and FCM, and lan
 surface with the right words.
 
 > Events carry facts. Rules decide who hears about it. AI decides the words.
-> *Notifications are events with manners.*
+
 
 ```
 Demo controller ─▶ FastAPI (Cloud Run)
@@ -16,6 +16,56 @@ Demo controller ─▶ FastAPI (Cloud Run)
                     GET /api/stream ─────────▶ EventSource (web app + stage inspector)
                     firebase-admin ──────────▶ FCM ─▶ service worker
 ```
+
+## From event to notification
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor P as Presenter
+    participant API as Backend
+    participant G as Gemini
+    participant Tab as Customer Tab (SSE)
+    participant FCM as FCM (Firestore Tokens)
+
+    P->>API: Fire event
+    API->>API: Update parcel and determine delivery channel
+
+    alt Customer viewing this parcel
+        API->>Tab: Send inline timeline update
+    else Customer not viewing this parcel
+        API->>G: Generate notification title and body
+        Note over API,G: Use catalogue template if Gemini fails
+        G-->>API: Return message with event_id
+
+        API->>API: Add notification to inbox
+
+        opt Customer tab is visible
+            API->>Tab: Send toast notification
+        end
+
+        opt Push required (hidden tab or other devices)
+            API->>FCM: Send push with same event_id
+        end
+
+        Note over Tab,FCM: Browser deduplicates messages using event_id
+    end
+```
+
+## Gemini model
+
+`GEMINI_MODEL` picks the model. The default is **`gemini-3.1-flash-lite`**, with thinking turned off
+(`GEMINI_THINKING_BUDGET=0`).
+
+| Preference | Model | Why |
+|---|---|---|
+| 1 (default) | `gemini-3.1-flash-lite` | Answers in about 1 s with thinking off, inside the 1.5 s enrichment budget |
+| Not used | Full `gemini-3.x-flash` | Takes about 1.6–2.2 s, so most calls would time out and fall back to templates |
+| **Not available** | `gemini-2.5-flash` | Retired for new users: the API returns **404**. Don't set it |
+
+To try a model that rejects a thinking budget of 0 (for example `gemini-3.5-flash-lite`), set
+`GEMINI_THINKING_BUDGET=""` so the setting is left out. If there's no API key, the model fails or it
+runs past the timeout, the message comes from the catalogue template, so a notification still goes out.
 
 ## Layout
 
@@ -65,7 +115,6 @@ In dev, Vite proxies `/api` (including the stream) to `:8000`, so there is no CO
 `gcloud auth application-default login` plus `FIREBASE_PROJECT_ID`, or `GOOGLE_APPLICATION_CREDENTIALS`
 pointing at a service account key with the *Firebase Cloud Messaging Admin* role.
 
-**Live golden tests** (9 event types × 3 contexts against the real model):
 
 ```bash
 GEMINI_API_KEY=... pytest tests/test_enrich.py -k golden
@@ -74,20 +123,6 @@ GEMINI_API_KEY=... pytest tests/test_enrich.py -k golden
 They assert valid JSON, the length limits, and that every number in the output appears in the input.
 
 ## API
-
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/api/stream?user_id=&client_id=[&observer=true]` | SSE: `delivery` (with `id:`) and `presence` events, 15 s ping, `Last-Event-ID` replay |
-| POST | `/api/session/context` | `{user_id, client_id, context}`. UI state only: no free text |
-| POST | `/api/devices` | `{user_id, token}` FCM registration |
-| GET | `/api/parcels`, `/api/inbox`, `/api/presence` | `?user_id=` |
-| POST | `/api/inbox/read` | `{user_id}` |
-| GET | `/api/config` | Personas, catalogue, feature flags |
-| POST | `/api/demo/events` | `{type, user_id, parcel_id?, payload?}`. Priority always comes from the catalogue |
-| POST | `/api/demo/scenarios/burst` | Three events at once (shows coalescing) |
-| GET/PUT | `/api/demo/settings` | `{enrich_mode: gemini|template, simulate_gemini_failure, coalesce}` |
-| POST | `/api/demo/reset` | Reset parcels, inbox and history |
-| GET | `/api/demo/deliveries?user_id=` | Recent deliveries for the inspector |
 
 `/api/demo/*` requires `X-Demo-Key` when `DEMO_KEY` is set, and is rate limited per IP.
 
@@ -98,7 +133,7 @@ curl -N "localhost:8000/api/stream?user_id=u_amani&client_id=curl_tab1" &
 curl -X POST localhost:8000/api/demo/events -H 'content-type: application/json' \
   -d '{"type":"parcel.out_for_delivery","user_id":"u_amani"}'
 ```
-
+Find the API docs at https://shippy-api-yn5hpzfbqq-ew.a.run.app/docs
 ## Deploy
 
 ### Automated (GitHub Actions)
@@ -159,25 +194,3 @@ a VAPID key, `gemini-api-key` in Secret Manager, and the Cloud Run service accou
    ```
 
 4. Open `https://<site>.web.app/stage`, enter the demo key, and test from a phone on mobile data.
-
-## Demo script (5 minutes)
-
-Presenter: `/stage` on the projector. Customer: `/` on the phone (Android Chrome) or a second window.
-Tap **Enable alerts** on the customer device beforehand.
-
-| Time | Do | Audience sees |
-|---|---|---|
-| 0:45 | Customer on **Orders**. Fire `parcel.out_for_delivery` | Toast in the tab. Inspector: JSON → *SSE toast* → Gemini sentence → SSE |
-| 2:00 | Open that parcel. Fire the same event | No toast, timeline flashes. Inspector: *Inline update*, "No words needed" |
-| 3:00 | Lock the phone or hide the tab. Fire `parcel.delivery_failed`, then `parcel.in_transit` | Push on the phone (Urgency high). Info event: inbox badge only |
-| 4:00 | Untick **Gemini enrichment** (or tick **Simulate Gemini outage**) and fire an event | Template message still arrives. Inspector shows the fallback reason |
-
-Extras: **Burst** with **Coalesce** on ("three things happened, she got one notification"), and the
-Wanjiru persona (Swahili wording from the same facts).
-
-## Production notes (not in this demo)
-
-- Replace the in-memory hub with Pub/Sub for fan-out and Firestore or Redis for presence, then lift `--max-instances 1`. FCM tokens are already in Firestore.
-- Real auth (Firebase Auth). `EventSource` cannot set headers, so use a cookie or a short-lived stream token instead of `user_id` in the query string.
-- Move Gemini to Vertex AI (IAM auth, no API key). The `Enricher` interface also allows an on-device swap to Chrome Built-in AI.
-- iOS web push needs iOS 16.4+ and a Home Screen install (the app ships a manifest for this). Android or desktop Chrome is simpler on stage.
