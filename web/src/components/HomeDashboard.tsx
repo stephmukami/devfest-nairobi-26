@@ -45,8 +45,9 @@ export function HomeDashboard({ persona, parcels, onOpenParcel }: Props) {
   const attention = parcels.filter((p) => ATTENTION_STATUSES.has(p.status))
   const arriving = parcels.filter((p) => p.status === 'out_for_delivery')
   const delivered = parcels.filter((p) => p.status === 'delivered')
-  const feesDue = parcels.reduce((sum, p) => sum + (p.status === 'payment_due' ? (p.fee_kes ?? 0) : 0), 0)
-  const month = new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+  const due = parcels.filter((p) => p.status === 'payment_due')
+  const feesDue = due.reduce((sum, p) => sum + (p.fee_kes ?? 0), 0)
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 
   // Problems first, then parcels still moving, delivered last.
   const rank = (p: Parcel) => (ATTENTION_STATUSES.has(p.status) ? 0 : p.status === 'delivered' ? 2 : 1)
@@ -60,14 +61,26 @@ export function HomeDashboard({ persona, parcels, onOpenParcel }: Props) {
         <section className="rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-semibold">Delivery overview</h2>
-            <span className="text-sm text-muted-foreground">{month}</span>
+            <span className="text-sm text-muted-foreground">{today}</span>
           </div>
-          <div className="mt-4 grid grid-cols-4 gap-2">
+          <div className="mt-4 grid grid-cols-3 gap-2">
             <Stat label="Arriving" value={arriving.length} tone={arriving.length ? 'text-good' : undefined} />
             <Stat label="Attention" value={attention.length} tone={attention.length ? 'text-action' : undefined} />
             <Stat label="Delivered" value={delivered.length} />
-            <Stat label="Fees due" value={feesDue ? `KES ${feesDue}` : '0'} tone={feesDue ? 'text-critical' : undefined} />
           </div>
+        </section>
+
+        <section className="flex items-center justify-between gap-4 rounded-lg bg-card p-4 ring-1 ring-foreground/10 sm:p-5">
+          <div className="min-w-0">
+            <h2 className="font-semibold">Fees due</h2>
+            <p className={cn('mt-1 text-2xl font-bold tabular-nums', feesDue ? 'text-critical' : 'text-muted-foreground')}>
+              KES {feesDue}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {due.length ? `${due.length} parcel${due.length > 1 ? 's' : ''} awaiting payment` : 'Nothing to pay'}
+            </p>
+          </div>
+          {due.length > 0 && <Button onClick={() => navigate('/payment')}>Pay now</Button>}
         </section>
       </div>
 

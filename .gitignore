@@ -7,6 +7,9 @@ __pycache__/
 # Node
 web/node_modules/
 web/dist/
+# Stray `tsc` output: Vite resolves .js before .tsx, so these shadow the real sources.
+web/src/**/*.js
+web/vite.config.js
 
 # Secrets and local env
 .env
