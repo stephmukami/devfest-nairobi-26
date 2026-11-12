@@ -119,6 +119,9 @@ class Pipeline:
         elif decision.action == "toast":
             kind = "sticky toast" if decision.sticky else "toast"
             channels.append(ChannelResult(channel="sse", status="delivered", detail=f"{kind} in {tabs} tab(s)"))
+            if decision.also_push:
+                assert message is not None
+                channels.append(await self.fcm.send(user_id, event, message, decision))
         elif decision.action == "push":
             assert message is not None
             channels.append(await self.fcm.send(user_id, event, message, decision))

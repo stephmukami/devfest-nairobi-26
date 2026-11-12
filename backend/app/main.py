@@ -81,13 +81,13 @@ async def presence(user_id: str):
 
 @app.post("/api/session/context")
 async def session_context(update: ContextUpdate):
-    hub.update_context(_user(update.user_id), update.client_id, update.context)
+    hub.update_context(_user(update.user_id), update.client_id, update.context, update.device_id)
     return hub.session_state(update.user_id)
 
 
 @app.post("/api/devices")
 async def register_device(reg: DeviceRegistration):
-    await hub.add_token(_user(reg.user_id), reg.token)
+    await hub.add_token(_user(reg.user_id), reg.token, reg.device_id)
     return {"ok": True, "devices": len(await hub.tokens(reg.user_id))}
 
 

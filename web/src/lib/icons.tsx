@@ -26,7 +26,10 @@ import {
   NotificationOff01Icon,
   PackageIcon,
   Settings01Icon,
+  SidebarLeftIcon,
   Store01Icon,
+  ViewIcon,
+  ViewOffSlashIcon,
   WarehouseIcon,
 } from '@hugeicons/core-free-icons'
 import type { IconName } from './types'
@@ -56,6 +59,9 @@ const UI_ICONS = {
   back: ArrowLeft02Icon,
   next: ArrowRight02Icon,
   external: ArrowUpRight01Icon,
+  eye: ViewIcon,
+  eyeOff: ViewOffSlashIcon,
+  sidebar: SidebarLeftIcon,
   readAll: TickDouble02Icon,
   // Customer app tab bar
   home: Home01Icon,

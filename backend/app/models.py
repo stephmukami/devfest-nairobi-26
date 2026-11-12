@@ -80,6 +80,8 @@ class Decision(BaseModel):
     sticky: bool = False
     also_inbox: bool = False
     urgency: Literal["normal", "high"] = "normal"
+    # Toast on the device being looked at, and also push to the user's other devices.
+    also_push: bool = False
     reason: str
 
 
@@ -175,12 +177,15 @@ class EmitRequest(BaseModel):
 class ContextUpdate(BaseModel):
     user_id: str
     client_id: str = Field(pattern=CLIENT_ID_PATTERN)
+    # One id per browser (localStorage), shared by its tabs and its FCM token.
+    device_id: str | None = Field(default=None, pattern=CLIENT_ID_PATTERN)
     context: Context
 
 
 class DeviceRegistration(BaseModel):
     user_id: str
     token: str = Field(min_length=20, max_length=4096)
+    device_id: str | None = Field(default=None, pattern=CLIENT_ID_PATTERN)
 
 
 class DeviceRef(BaseModel):

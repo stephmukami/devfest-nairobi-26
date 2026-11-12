@@ -92,8 +92,12 @@ class FcmSender:
     async def send(self, user_id: str, event: Event, message: Message, decision: Decision) -> ChannelResult:
         if not self._enabled:
             return ChannelResult(channel="fcm", status="disabled", detail="FCM_ENABLED is off")
-        tokens = await self._hub.tokens(user_id)
+        tokens, skipped = await self._hub.push_tokens(user_id)
         if not tokens:
+            if skipped:
+                return ChannelResult(
+                    channel="fcm", status="skipped", detail=f"{skipped} device(s) with alerts already showing the toast"
+                )
             return ChannelResult(channel="fcm", status="no_tokens", detail="No device has enabled alerts for this user")
         app = self._ensure_app()
         if app is None:
@@ -123,6 +127,8 @@ class FcmSender:
 
         status = "sent" if sent else "error"
         detail = f"{sent}/{len(tokens)} device(s), Urgency: high"
+        if skipped:
+            detail += f", skipped {skipped} showing the toast"
         if decision.urgency == "high":
             detail += ", sticky"
         if errors:

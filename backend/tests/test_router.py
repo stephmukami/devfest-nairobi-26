@@ -23,27 +23,28 @@ OFFLINE = SessionState(connection_count=0, visible=False)
 
 
 @pytest.mark.parametrize(
-    "priority, session, action, sticky, urgency",
+    "priority, session, action, sticky, urgency, also_push",
     [
-        # Tab visible and connected
-        ("info", VISIBLE, "toast", False, "normal"),
-        ("action", VISIBLE, "toast", False, "normal"),
-        ("critical", VISIBLE, "toast", True, "normal"),
+        # Tab visible and connected: toast there, and push to other devices unless info
+        ("info", VISIBLE, "toast", False, "normal", False),
+        ("action", VISIBLE, "toast", False, "normal", True),
+        ("critical", VISIBLE, "toast", True, "high", True),
         # Connected but hidden
-        ("info", HIDDEN, "inbox_only", False, "normal"),
-        ("action", HIDDEN, "push", False, "normal"),
-        ("critical", HIDDEN, "push", False, "high"),
+        ("info", HIDDEN, "inbox_only", False, "normal", False),
+        ("action", HIDDEN, "push", False, "normal", False),
+        ("critical", HIDDEN, "push", False, "high", False),
         # Not connected
-        ("info", OFFLINE, "inbox_only", False, "normal"),
-        ("action", OFFLINE, "push", False, "normal"),
-        ("critical", OFFLINE, "push", False, "high"),
+        ("info", OFFLINE, "inbox_only", False, "normal", False),
+        ("action", OFFLINE, "push", False, "normal", False),
+        ("critical", OFFLINE, "push", False, "high", False),
     ],
 )
-def test_policy_table(priority, session, action, sticky, urgency):
+def test_policy_table(priority, session, action, sticky, urgency, also_push):
     decision = decide(event(priority), session)
     assert decision.action == action
     assert decision.sticky is sticky
     assert decision.urgency == urgency
+    assert decision.also_push is also_push
     assert decision.also_inbox is True
 
 

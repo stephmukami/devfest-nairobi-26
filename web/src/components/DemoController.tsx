@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { api, getDemoKey, setDemoKey } from '@/lib/api'
+import { api } from '@/lib/api'
 import { eventLabel, STATUS_LABEL } from '@/lib/format'
 import { Icon } from '@/lib/icons'
 import { PRIORITY_TEXT } from '@/lib/priority'
-import type { AppConfig, Parcel, Presence, Priority, Switches } from '@/lib/types'
+import type { AppConfig, Parcel, Presence, Priority } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -20,9 +16,8 @@ interface Props {
   presence: Presence | null
   /** Devices with alerts on per persona; null until loaded (or without a demo key). */
   devices: Record<string, number> | null
-  onAfterReset: () => void
-  /** Registered devices were cleared; refresh the counts. */
-  onDevicesCleared?: () => void
+  /** Bumped whenever demo data is reset, to clear the last-fired highlight. */
+  resetCount: number
   /** An event was sent; the stage shows the inspector as pending until its delivery arrives. */
   onFire?: (label: string) => void
   /** The send failed, so no delivery is coming. */
@@ -67,14 +62,11 @@ export function DemoController({
   parcels,
   presence,
   devices,
-  onAfterReset,
-  onDevicesCleared,
+  resetCount,
   onFire,
   onFireFailed,
 }: Props) {
   const [parcelId, setParcelId] = useState('')
-  const [switches, setSwitches] = useState<Switches>(config.switches)
-  const [key, setKey] = useState(getDemoKey())
   const [busy, setBusy] = useState<string | null>(null)
   const [fired, setFired] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -83,9 +75,8 @@ export function DemoController({
     if (!parcels.some((p) => p.parcel_id === parcelId)) setParcelId(parcels[0]?.parcel_id ?? '')
   }, [parcels, parcelId])
 
-  useEffect(() => {
-    api.getSettings().then(setSwitches).catch(() => {})
-  }, [key])
+  // Demo data was reset from the settings panel: nothing has been fired any more.
+  useEffect(() => setFired(null), [resetCount])
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(label)
@@ -99,36 +90,8 @@ export function DemoController({
     }
   }
 
-  const toggle = (update: Partial<Switches>) => run('settings', async () => setSwitches(await api.putSettings(update)))
-
   const persona = config.personas.find((p) => p.user_id === userId)
   const parcel = parcels.find((p) => p.parcel_id === parcelId)
-
-  const switchRows: { id: string; checked: boolean; onChange: (v: boolean) => void; label: React.ReactNode }[] = [
-    {
-      id: 'sw-gemini',
-      checked: switches.enrich_mode === 'gemini',
-      onChange: (v) => toggle({ enrich_mode: v ? 'gemini' : 'template' }),
-      label: (
-        <>
-          Gemini enrichment
-          {!config.gemini_configured && <em className="block font-normal text-muted-foreground">No API key, templates only</em>}
-        </>
-      ),
-    },
-    {
-      id: 'sw-outage',
-      checked: switches.simulate_gemini_failure,
-      onChange: (v) => toggle({ simulate_gemini_failure: v }),
-      label: 'Simulate Gemini outage',
-    },
-    {
-      id: 'sw-coalesce',
-      checked: switches.coalesce,
-      onChange: (v) => toggle({ coalesce: v }),
-      label: 'Coalesce bursts (2 s window)',
-    },
-  ]
 
   return (
     <div className="grid gap-6 p-5">
@@ -266,66 +229,12 @@ export function DemoController({
         </button>
       </section>
 
-      <section className="grid gap-3">
-        <SectionLabel>Kill switches</SectionLabel>
-        {switchRows.map((s) => (
-          <div key={s.id} className="flex items-start gap-2.5">
-            <Switch id={s.id} checked={s.checked} onCheckedChange={s.onChange} className="mt-0.5" />
-            <Label htmlFor={s.id} className="block font-normal">
-              {s.label}
-            </Label>
-          </div>
-        ))}
-      </section>
-
-      <section className="grid gap-3">
-        {config.demo_key_required && (
-          <div className="grid gap-1.5">
-            <Label htmlFor="dc-key" className="text-xs text-muted-foreground">
-              Demo key
-            </Label>
-            <Input
-              id="dc-key"
-              type="password"
-              value={key}
-              onChange={(e) => {
-                setKey(e.target.value)
-                setDemoKey(e.target.value)
-              }}
-            />
-          </div>
-        )}
-        <Button
-          variant="outline"
-          className="border-dashed text-muted-foreground"
-          disabled={busy !== null}
-          onClick={() =>
-            run('reset', async () => {
-              await api.reset()
-              setFired(null)
-              onAfterReset()
-            })
-          }
-        >
-          Reset demo data
-        </Button>
-        <Button
-          variant="outline"
-          className="border-dashed text-muted-foreground"
-          disabled={busy !== null}
-          title="Forget every device with alerts on. Phones that still allow alerts sign up again the next time Shippy opens."
-          onClick={() =>
-            run('clear devices', async () => {
-              await api.clearDevices()
-              onDevicesCleared?.()
-            })
-          }
-        >
-          <Icon name="bellOff" size={16} /> Clear devices
-        </Button>
-        {busy && <p className="text-sm text-muted-foreground">Sending {busy}…</p>}
-        {error && <p className="text-sm text-destructive">{error}</p>}
-      </section>
+      {(busy || error) && (
+        <section>
+          {busy && <p className="text-sm text-muted-foreground">Sending {busy}…</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </section>
+      )}
     </div>
   )
 }

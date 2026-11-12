@@ -38,6 +38,7 @@ export interface Decision {
   sticky: boolean
   also_inbox: boolean
   urgency: 'normal' | 'high'
+  also_push: boolean
   reason: string
 }
 

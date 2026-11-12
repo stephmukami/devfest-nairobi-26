@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChannelInspector } from '@/components/ChannelInspector'
 import { DemoController } from '@/components/DemoController'
+import { StageSettings } from '@/components/StageSettings'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { Icon } from '@/lib/icons'
 import { useStream } from '@/lib/sse'
 import { tabClientId } from '@/lib/storage'
 import type { AppConfig, Delivery, Parcel, Presence } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 interface Props {
   config: AppConfig
@@ -67,10 +69,20 @@ export function StagePage({ config, userId, onUserChange }: Props) {
     return () => window.clearTimeout(t)
   }, [presence, userId, loadDevices])
 
+  const [controlsOpen, setControlsOpen] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [resetCount, setResetCount] = useState(0)
+
   return (
-    // Desktop: full-height sidebar + scrolling main. Below 1024px the sidebar stacks on top.
-    <div className="min-h-dvh lg:grid lg:h-dvh lg:grid-cols-[300px_minmax(0,1fr)]">
-      <aside className="border-b bg-card lg:overflow-y-auto lg:border-r lg:border-b-0">
+    // Desktop: full-height sidebars + scrolling main. Below 1024px the controls stack on top
+    // and settings slide over from the right. Hidden panels stay mounted to keep their state.
+    <div className="min-h-dvh lg:flex lg:h-dvh">
+      <aside
+        className={cn(
+          'border-b bg-card lg:w-[300px] lg:flex-none lg:overflow-y-auto lg:border-r lg:border-b-0',
+          !controlsOpen && 'hidden',
+        )}
+      >
         <DemoController
           config={config}
           userId={userId}
@@ -78,25 +90,64 @@ export function StagePage({ config, userId, onUserChange }: Props) {
           parcels={parcels}
           presence={presence}
           devices={devices}
-          onAfterReset={load}
-          onDevicesCleared={loadDevices}
+          resetCount={resetCount}
           onFire={setPending}
           onFireFailed={() => setPending(null)}
         />
       </aside>
-      <main className="min-w-0 px-4 py-6 sm:px-8 lg:overflow-y-auto">
-        <header className="mx-auto mb-6 flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2">
+      <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 lg:overflow-y-auto">
+        <header className="mx-auto mb-6 flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-2">
+          <Button
+            variant="ghost"
+            size="icon-lg"
+            aria-label={controlsOpen ? 'Hide controls' : 'Show controls'}
+            aria-pressed={controlsOpen}
+            title={controlsOpen ? 'Hide controls' : 'Show controls'}
+            onClick={() => setControlsOpen((v) => !v)}
+          >
+            <Icon name="sidebar" size={20} />
+          </Button>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Signals over noise</h1>
           <Button variant="outline" asChild className="ml-auto">
             <a href="/" target="_blank" rel="noreferrer">
               Open customer app <Icon name="external" size={16} />
             </a>
           </Button>
+          <Button
+            variant={settingsOpen ? 'secondary' : 'outline'}
+            size="icon-lg"
+            aria-label={settingsOpen ? 'Hide settings' : 'Show settings'}
+            aria-pressed={settingsOpen}
+            title="Settings"
+            onClick={() => setSettingsOpen((v) => !v)}
+          >
+            <Icon name="settings" size={18} />
+          </Button>
         </header>
         <div className="mx-auto max-w-5xl">
           <ChannelInspector deliveries={deliveries} status={status} pending={pending} />
         </div>
       </main>
+      {settingsOpen && (
+        <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" aria-hidden="true" onClick={() => setSettingsOpen(false)} />
+      )}
+      <aside
+        className={cn(
+          'fixed inset-y-0 right-0 z-40 w-[300px] max-w-[85vw] overflow-y-auto border-l bg-card shadow-xl',
+          'lg:static lg:z-auto lg:max-w-none lg:flex-none lg:shadow-none',
+          !settingsOpen && 'hidden',
+        )}
+      >
+        <StageSettings
+          config={config}
+          onClose={() => setSettingsOpen(false)}
+          onAfterReset={() => {
+            setResetCount((n) => n + 1)
+            load()
+          }}
+          onDevicesCleared={loadDevices}
+        />
+      </aside>
     </div>
   )
 }

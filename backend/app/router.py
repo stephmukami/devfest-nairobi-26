@@ -23,12 +23,18 @@ def decide(event: Event, session: SessionState) -> Decision:
     priority = event.priority
 
     if visible:
+        # The toast reaches the device being looked at. Action and critical events also push to the
+        # user's other devices (a phone in a pocket), which the FCM sender picks per device.
+        also_push = priority != "info"
         return Decision(
             action="toast",
             sticky=priority == "critical",
             also_inbox=True,
+            also_push=also_push,
+            urgency="high" if priority == "critical" else "normal",
             reason=f"{priority} event, tab visible and connected: SSE toast"
-            + (" (sticky)." if priority == "critical" else "."),
+            + (" (sticky)" if priority == "critical" else "")
+            + ("; FCM push to the user's other devices." if also_push else "."),
         )
 
     if priority == "info":

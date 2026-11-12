@@ -1,4 +1,4 @@
-import { load, save } from './storage'
+import { deviceId, load, save } from './storage'
 import type {
   AppConfig,
   Context,
@@ -47,9 +47,12 @@ export const api = {
   markInboxRead: (userId: string) => request('/api/inbox/read', post({ user_id: userId })),
   presence: (userId: string) => request<Presence>(`/api/presence?${q(userId)}`),
   postContext: (userId: string, clientId: string, context: Context) =>
-    request<SessionState>('/api/session/context', post({ user_id: userId, client_id: clientId, context })),
+    request<SessionState>(
+      '/api/session/context',
+      post({ user_id: userId, client_id: clientId, device_id: deviceId(), context }),
+    ),
   registerDevice: (userId: string, token: string) =>
-    request('/api/devices', post({ user_id: userId, token })),
+    request('/api/devices', post({ user_id: userId, token, device_id: deviceId() })),
   unregisterDevice: (token: string) => request('/api/devices/unregister', post({ token })),
 
   // Demo controller (X-Demo-Key)
@@ -73,7 +76,7 @@ export const api = {
 
 /** Best-effort context post that survives page unload (pagehide). Same-origin via /api. */
 export function beaconContext(userId: string, clientId: string, context: Context): void {
-  const body = JSON.stringify({ user_id: userId, client_id: clientId, context })
+  const body = JSON.stringify({ user_id: userId, client_id: clientId, device_id: deviceId(), context })
   try {
     if (navigator.sendBeacon?.('/api/session/context', new Blob([body], { type: 'application/json' }))) return
   } catch {

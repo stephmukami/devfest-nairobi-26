@@ -44,9 +44,15 @@ export function usePresence(userId: string, clientId: string, view: View, parcel
       const { view, parcelId, locale } = latest.current
       beaconContext(userId, clientId, { ...buildContext(view, parcelId, locale), visible: false })
     }
+    // Heartbeat while visible: the server treats a "visible" report older than 60s as hidden, so a
+    // phone that locks without firing visibilitychange stops blocking push to the user's devices.
+    const beat = window.setInterval(() => {
+      if (document.visibilityState === 'visible') send()
+    }, 20_000)
     document.addEventListener('visibilitychange', send)
     window.addEventListener('pagehide', hide)
     return () => {
+      window.clearInterval(beat)
       document.removeEventListener('visibilitychange', send)
       window.removeEventListener('pagehide', hide)
     }

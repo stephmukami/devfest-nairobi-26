@@ -26,26 +26,37 @@ TOKEN_TTL = timedelta(days=60)
 class MemoryTokenStore:
     def __init__(self) -> None:
         self._tokens: dict[str, dict[str, float]] = {}  # user_id -> {token: last registered}
+        self._devices: dict[str, str] = {}  # token -> device_id (one browser), when the client sent one
 
-    def _add_local(self, user_id: str, token: str, ts: float) -> list[str]:
-        """Add or refresh a token. Returns tokens evicted by the per-user cap."""
+    def _add_local(self, user_id: str, token: str, ts: float, device_id: str | None = None) -> list[str]:
+        """Add or refresh a token. Returns tokens dropped: the device's older token, or the per-user cap."""
         # A browser token belongs to one persona at a time in this demo.
         for other, tokens in self._tokens.items():
             if other != user_id:
                 tokens.pop(token, None)
+        replaced: list[str] = []
+        if device_id:
+            # A browser holds one push subscription. An older token from the same browser would
+            # make it ring twice (or not at all once FCM expires it), so the new one replaces it.
+            replaced = [t for t, d in self._devices.items() if d == device_id and t != token]
+            for old in replaced:
+                self._remove_local(old)
+            self._devices[token] = device_id
         tokens = self._tokens.setdefault(user_id, {})
         tokens[token] = ts
         evicted = sorted(tokens, key=tokens.__getitem__)[: max(0, len(tokens) - MAX_TOKENS_PER_USER)]
         for old in evicted:
             del tokens[old]
-        return evicted
+            self._devices.pop(old, None)
+        return replaced + evicted
 
     def _remove_local(self, token: str) -> None:
         for tokens in self._tokens.values():
             tokens.pop(token, None)
+        self._devices.pop(token, None)
 
-    async def add(self, user_id: str, token: str) -> None:
-        self._add_local(user_id, token, time.time())
+    async def add(self, user_id: str, token: str, device_id: str | None = None) -> None:
+        self._add_local(user_id, token, time.time(), device_id)
 
     async def remove(self, token: str) -> None:
         self._remove_local(token)
@@ -53,10 +64,15 @@ class MemoryTokenStore:
     async def for_user(self, user_id: str) -> list[str]:
         return sorted(self._tokens.get(user_id, {}))
 
+    async def devices_for_user(self, user_id: str) -> dict[str, str | None]:
+        """{token: device_id or None} for the user's registered devices."""
+        return {t: self._devices.get(t) for t in await self.for_user(user_id)}
+
     async def clear(self) -> int:
         """Forget every device. Returns how many tokens were dropped."""
         dropped = sum(len(t) for t in self._tokens.values())
         self._tokens.clear()
+        self._devices.clear()
         return dropped
 
 
@@ -121,17 +137,25 @@ class FirestoreTokenStore(MemoryTokenStore):
                 token, updated = data.get("token"), data.get("updated_at")
                 if token and token not in tokens:
                     tokens[token] = updated.timestamp() if isinstance(updated, datetime) else 0.0
+                    if data.get("device_id"):
+                        self._devices.setdefault(token, data["device_id"])
             self._loaded.add(user_id)
 
-    async def add(self, user_id: str, token: str) -> None:
+    async def add(self, user_id: str, token: str, device_id: str | None = None) -> None:
         await self._ensure_loaded(user_id)
         now = datetime.now(timezone.utc)
-        evicted = self._add_local(user_id, token, now.timestamp())
+        evicted = self._add_local(user_id, token, now.timestamp(), device_id)
 
         def write(col):
             # Keyed by token: registering under another persona overwrites the old owner.
             col.document(doc_id(token)).set(
-                {"user_id": user_id, "token": token, "updated_at": now, "expires_at": now + TOKEN_TTL}
+                {
+                    "user_id": user_id,
+                    "token": token,
+                    "device_id": device_id,
+                    "updated_at": now,
+                    "expires_at": now + TOKEN_TTL,
+                }
             )
             for old in evicted:
                 col.document(doc_id(old)).delete()

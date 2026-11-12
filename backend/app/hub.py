@@ -23,6 +23,9 @@ log = logging.getLogger(__name__)
 
 MAX_CLIENTS_PER_USER = 20
 MAX_INBOX = 100
+# A "visible" report older than this counts as hidden. Visible tabs re-report every 20s, so a phone
+# that locked or froze the tab without telling us stops blocking push to the user's devices.
+VISIBLE_TTL_S = 60.0
 
 QueueItem = tuple[str, str | None, str]  # (sse event name, sse id, json data)
 
@@ -40,6 +43,10 @@ class Connection:
 class ClientPresence:
     context: Context
     updated_at: float  # wall clock, seconds
+    device_id: str | None = None  # the browser this tab runs in
+
+    def seen_now(self, now: float) -> bool:
+        return self.context.visible and now - self.updated_at <= VISIBLE_TTL_S
 
 
 def _iso(ts: float) -> str:
@@ -82,12 +89,12 @@ class Hub:
 
     # ------------------------------------------------------------ presence
 
-    def update_context(self, user_id: str, client_id: str, context: Context) -> None:
+    def update_context(self, user_id: str, client_id: str, context: Context, device_id: str | None = None) -> None:
         clients = self._clients.setdefault(user_id, {})
         if client_id not in clients and len(clients) >= MAX_CLIENTS_PER_USER:
             oldest = min(clients, key=lambda cid: clients[cid].updated_at)
             clients.pop(oldest)
-        clients[client_id] = ClientPresence(context, time.time())
+        clients[client_id] = ClientPresence(context, time.time(), device_id)
         self._broadcast_presence(user_id)
 
     def _connected_presences(self, user_id: str) -> list[ClientPresence]:
@@ -103,7 +110,8 @@ class Hub:
     def session_state(self, user_id: str) -> SessionState:
         """Aggregate presence. A connected tab with no context yet counts as hidden (safer: push)."""
         presences = self._connected_presences(user_id)
-        visible = [p for p in presences if p.context.visible]
+        now = time.time()
+        visible = [p for p in presences if p.seen_now(now)]
         latest_visible = max(visible, key=lambda p: p.updated_at, default=None)
         latest_any = max(presences, key=lambda p: p.updated_at, default=None)
         return SessionState(
@@ -117,7 +125,8 @@ class Hub:
     def enrichment_context(self, user_id: str) -> Context:
         """The context to hand Gemini: the visible tab if any, else the last known one."""
         presences = self._connected_presences(user_id)
-        visible = [p for p in presences if p.context.visible]
+        now = time.time()
+        visible = [p for p in presences if p.seen_now(now)]
         chosen = max(visible, key=lambda p: p.updated_at, default=None)
         if chosen is None:
             everything = list(self._clients.get(user_id, {}).values())
@@ -137,7 +146,7 @@ class Hub:
                 {
                     "client_id": cid,
                     "connected": cid in connected_ids,
-                    "visible": p.context.visible,
+                    "visible": p.seen_now(time.time()),
                     "view": p.context.view,
                     "parcel_id": p.context.parcel_id,
                     "updated_at": _iso(p.updated_at),
@@ -200,8 +209,21 @@ class Hub:
 
     # ------------------------------------------------------------ device tokens
 
-    async def add_token(self, user_id: str, token: str) -> None:
-        await self._token_store.add(user_id, token)
+    def visible_devices(self, user_id: str) -> set[str]:
+        """Browsers where the user is looking at the app right now (they already got a toast)."""
+        now = time.time()
+        return {p.device_id for p in self._connected_presences(user_id) if p.device_id and p.seen_now(now)}
+
+    async def add_token(self, user_id: str, token: str, device_id: str | None = None) -> None:
+        await self._token_store.add(user_id, token, device_id)
+
+    async def push_tokens(self, user_id: str) -> tuple[list[str], int]:
+        """Tokens to push to, skipping devices the user is looking at. Returns (tokens, skipped).
+        Tokens registered without a device id are always included: better twice than never."""
+        looking = self.visible_devices(user_id)
+        devices = await self._token_store.devices_for_user(user_id)
+        tokens = [t for t, d in devices.items() if d is None or d not in looking]
+        return tokens, len(devices) - len(tokens)
 
     async def remove_token(self, token: str) -> None:
         await self._token_store.remove(token)
