@@ -11,13 +11,16 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import os
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 log = logging.getLogger(__name__)
 
-MAX_TOKENS_PER_USER = 10
+# The whole audience shares two demo personas, so each persona can hold a room's worth of devices.
+# Oldest-refreshed tokens are dropped past this. FCM itself has no per-user device limit.
+MAX_TOKENS_PER_USER = int(os.getenv("MAX_TOKENS_PER_USER") or 500)
 COLLECTION = "fcm_tokens"
 # Firestore TTL policy on `expires_at` deletes tokens nobody has refreshed in this long.
 TOKEN_TTL = timedelta(days=60)

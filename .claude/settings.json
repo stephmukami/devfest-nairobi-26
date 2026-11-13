@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(gcloud run services describe shippy-api --project shippy-6b185 --region europe-west1 --format \"value\\(status.url\\)\")"
+      "PowerShell(gcloud run services describe shippy-api --project shippy-6b185 --region europe-west1 --format \"value\\(status.url\\)\")",
+      "Bash(gh variable *)",
+      "Bash(gh secret *)"
     ]
   }
 }

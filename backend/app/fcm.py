@@ -10,6 +10,9 @@ from .models import ChannelResult, Decision, Event, Message
 
 log = logging.getLogger(__name__)
 
+# messaging.send_each accepts at most 500 messages per call.
+FCM_BATCH_SIZE = 500
+
 NO_CREDENTIALS_HINT = (
     "no Google credentials on this machine. Run `gcloud auth application-default login` "
     "and `gcloud auth application-default set-quota-project <project>`, then restart the API"
@@ -109,21 +112,32 @@ class FcmSender:
         # This event's inbox item is added after the push, hence the + 1.
         badge = sum(1 for item in self._hub.inbox(user_id) if not item.read) + 1
         sent, errors = 0, []
-        for token in tokens:
+        stale = (messaging.UnregisteredError, messaging.SenderIdMismatchError, exceptions.InvalidArgumentError)
+        # One batched call per 500 tokens (FCM's limit), so a room full of phones buzzes together
+        # instead of one HTTP round trip per device.
+        for start in range(0, len(tokens), FCM_BATCH_SIZE):
+            batch = tokens[start : start + FCM_BATCH_SIZE]
+            messages = [self._build(token, event, message, decision, badge) for token in batch]
             try:
-                await asyncio.to_thread(messaging.send, self._build(token, event, message, decision, badge), app=app)
-                sent += 1
+                response = await asyncio.to_thread(messaging.send_each, messages, app=app)
             except DefaultCredentialsError:
                 # Same for every token, so stop and say how to fix it. On Cloud Run this never happens.
                 log.warning("fcm send: no Application Default Credentials on this machine")
                 errors.append(NO_CREDENTIALS_HINT)
                 break
-            except (messaging.UnregisteredError, messaging.SenderIdMismatchError, exceptions.InvalidArgumentError) as exc:
-                await self._hub.remove_token(token)
-                errors.append(f"removed stale token ({type(exc).__name__})")
             except Exception as exc:
-                log.warning("fcm send failed: %r", exc)
+                log.warning("fcm batch send failed: %r", exc)
                 errors.append(f"{type(exc).__name__}: {exc}")
+                continue
+            for token, result in zip(batch, response.responses):
+                if result.success:
+                    sent += 1
+                elif isinstance(result.exception, stale):
+                    await self._hub.remove_token(token)
+                    errors.append(f"removed stale token ({type(result.exception).__name__})")
+                else:
+                    log.warning("fcm send failed: %r", result.exception)
+                    errors.append(f"{type(result.exception).__name__}: {result.exception}")
 
         status = "sent" if sent else "error"
         detail = f"{sent}/{len(tokens)} device(s), Urgency: high"

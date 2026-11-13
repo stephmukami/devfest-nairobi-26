@@ -122,6 +122,41 @@ GEMINI_API_KEY=... pytest tests/test_enrich.py -k golden
 
 They assert valid JSON, the length limits, and that every number in the output appears in the input.
 
+## Build it step by step
+
+The talk's code session builds the pipeline in nine steps. Each step names the file where the full
+version lives.
+
+1. **Describe every event once** ([catalogue.py](backend/app/catalogue.py)). Each event type maps to
+   a priority (`info`, `action`, `critical`), the parcel status it sets, and a fallback template filled
+   from the payload. Priority comes from here, never from whoever sends the event.
+2. **Decide where to speak with a pure function** ([router.py](backend/app/router.py)).
+   `decide(event, session)` returns `inline` if the customer is viewing this parcel, `toast` if the tab
+   is visible (plus a push to other devices for action and critical events), `inbox_only` for info
+   events when away, and `push` otherwise. It does no I/O, so tests cover it as a table.
+3. **Ask Gemini for JSON, not prose** ([enrich.py](backend/app/enrich.py)). A Pydantic `Copy` model
+   (title, body, icon enum) is the response schema. Use `gemini-3.1-flash-lite` with
+   `thinking_budget=0` so answers come back in about 1 s.
+4. **Check the words before using them** (`validate_output` in [enrich.py](backend/app/enrich.py)).
+   Reject the output if it isn't valid JSON, the title is over 45 characters or the body over 110,
+   it contains emoji, or it has a number that isn't in the input facts.
+5. **Start from the template, and use Gemini's words only when they are fast and valid**
+   (`Enricher.enrich`). Render the template first, wrap the Gemini call in
+   `asyncio.wait_for(..., timeout=1.5)`, and fall back to the template on any timeout, rejection
+   or error.
+6. **Wire the four stages together** ([pipeline.py](backend/app/pipeline.py)). Apply the event to the
+   parcel state, decide, enrich only if the decision isn't `inline`, then send through FCM, add to the
+   inbox and publish to the hub as needed. Every channel carries the same `event_id`.
+7. **Stream deliveries over SSE, with replay** ([main.py](backend/app/main.py)). `GET /api/stream`
+   registers the connection, replays anything after `Last-Event-ID` from the hub's buffer, then yields
+   each new delivery as an SSE `delivery` event with its id. A 15 s ping keeps proxies from closing it.
+8. **Listen in the browser and show each event once** ([sse.ts](web/src/lib/sse.ts)). An
+   `EventSource` reconnects by itself and sends `Last-Event-ID`. A shared set of seen ids drops the
+   copy when SSE and FCM both carry the same event. An `inline` decision updates the timeline in place,
+   and a `toast` decision shows a toast.
+9. **Try it without a UI.** Start the API, open a stream with curl in one terminal, fire an event from
+   another (see [API](#api) below), then run `pytest`.
+
 ## API
 
 `/api/demo/*` requires `X-Demo-Key` when `DEMO_KEY` is set, and is rate limited per IP.
@@ -176,6 +211,7 @@ a VAPID key, `gemini-api-key` in Secret Manager, and the Cloud Run service accou
      --allow-unauthenticated \
      --timeout 3600 \
      --max-instances 1 --min-instances 1 \
+     --concurrency 1000 \
      --no-cpu-throttling \
      --set-secrets GEMINI_API_KEY=gemini-api-key:latest \
      --set-env-vars "^@^GEMINI_MODEL=<model>@ALLOWED_ORIGIN=https://<site>.web.app,https://<site>.firebaseapp.com@PUBLIC_APP_URL=https://<site>.web.app@DEMO_KEY=<random>@FIREBASE_PROJECT_ID=<project>@TOKEN_STORE=firestore"
@@ -183,7 +219,10 @@ a VAPID key, `gemini-api-key` in Secret Manager, and the Cloud Run service accou
 
    The `^@^` prefix changes gcloud's list delimiter so `ALLOWED_ORIGIN` can hold a comma.
    `--max-instances 1` is required (state other than FCM tokens is in memory); `--timeout 3600` keeps streams alive;
-   `--min-instances 1` avoids a cold start on stage.
+   `--min-instances 1` avoids a cold start on stage. `--concurrency 1000` lets one instance hold an
+   audience's worth of open SSE streams (each open tab is one long-lived request; the default is 80).
+   Each persona keeps up to `MAX_TOKENS_PER_USER` (default 500) push devices, and pushes go out in
+   batches of up to 500 with `send_each`.
 
 3. Frontend → Firebase Hosting. In `web/.env.production` set the Firebase config, the VAPID key, and
    `VITE_STREAM_URL=https://shippy-api-xxxx.<region>.run.app` (SSE goes **directly** to Cloud Run because
